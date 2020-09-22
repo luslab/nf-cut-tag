@@ -1,3 +1,4 @@
 [submodule "modules"]
 	path = modules
 	url = https://github.com/luslab/luslab-nf-modules.git
+	branch = master
