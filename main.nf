@@ -13,6 +13,8 @@ Luscombe lab CUT&Tag analysis pipeline.
 // Commandline options
 /*
     --skip_trim         skip adapter/primer trimming step
+    --no_fastqc         skip fastqc
+
 
 */
 
@@ -45,9 +47,11 @@ include { check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
 include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
+include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
+include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
@@ -80,9 +84,14 @@ workflow {
     fastq_metadata( params.input )
     //fastq_metadata.out.view()
 
-    // Run fastqc (change to multiqc, fastqc doesn't unzip)
-    fastqc( params.modules['fastqc'], fastq_metadata.out )
-    //fastqc.out.view()
+
+    if (!params.no_fastqc){
+        // Run fastqc
+        fastqc( params.modules['fastqc'], fastq_metadata.out )
+        //fastqc.out.view()
+    }
+
+    // Run MultiQC?
 
     // Perform merges here before alignment?
 
@@ -97,4 +106,12 @@ workflow {
     bt2_spike_in_align( params.modules['bowtie2_spike_in'], cutadapt.out.fastq, params.spike_in_index ) 
 
     // Duplicate removal? 
+    //umitools_dedup( params.modules['umi_tools'], bt2_genome_align.out.bam)
+
+    // Spike-in calibration and normalisation
+
+    // Peak-calling
+
+
+
 }
