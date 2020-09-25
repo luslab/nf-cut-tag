@@ -10,24 +10,31 @@ Luscombe lab CUT&Tag analysis pipeline.
 ----------------------------------------------------------------------------------------
 */
 
+// Commandline options
+/*
+    --skip_trim         skip adapter/primer trimming step
+
+*/
+
+
 // Define DSL2
 nextflow.enable.dsl=2
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Module global params
 -------------------------------------------------------------------------------------------------------------------------------*/
-params {
-    modules {
-        'bowtie2_spike_in'{
-            args             = ""
-            suffix           = ""
-            publish_dir      = "bowtie2"
-            publish_results  = "all"
-            unmapped_suffix  = ""
-            output_sam       = false
-        }
-    }
-}
+// params {
+//     modules {
+//         'bowtie2_spike_in'{
+//             args             = ""
+//             suffix           = ""
+//             publish_dir      = "bowtie2_2"
+//             publish_results  = "all"
+//             unmapped_suffix  = ""
+//             output_sam       = false
+//         }
+//     }
+// }
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Module inclusions
@@ -39,14 +46,14 @@ include { check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
 include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
 include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
-include { bowtie2 } from './luslab-nf-modules/tools/bowtie2/main.nf'
-
+include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
+include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
 -------------------------------------------------------------------------------------------------------------------------------*/
-params.genome_index = ''
-params.spike_in_index = ''
+// params.genome_index = ''
+// params.spike_in_index = ''
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Init
@@ -63,7 +70,6 @@ log.info luslab_header()
 /*-----------------------------------------------------------------------------------------------------------------------------
 Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
-
 // Channel setup
 
 // Run workflow
@@ -72,21 +78,23 @@ workflow {
 
     // Structure input
     fastq_metadata( params.input )
-    fastq_metadata.out.view()
+    //fastq_metadata.out.view()
 
     // Run fastqc (change to multiqc, fastqc doesn't unzip)
     fastqc( params.modules['fastqc'], fastq_metadata.out )
-    fastqc.out.view()
+    //fastqc.out.view()
 
     // Perform merges here before alignment?
 
     // Adapter trimming
-    cutadapt(params.modules['cutadapt'], fastq_metadata.out)
-    //cutadapt.out.view()
+    cutadapt( params.modules['cutadapt'], fastq_metadata.out )
+    //cutadapt.out.fastq.view()
 
     // Align to genome
-    bowtie2(params.modules['bowtie2'], cutadapt.out, genome_index)
+    bt2_genome_align( params.modules['bowtie2_align'], cutadapt.out.fastq, params.genome_index )
 
     // Align to spike-in genome
-    bowtie2(params.modules['bowtie2_spike_in'], cutadapt.out, spike_in_index)
+    bt2_spike_in_align( params.modules['bowtie2_spike_in'], cutadapt.out.fastq, params.spike_in_index ) 
+
+    // Duplicate removal? 
 }
