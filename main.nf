@@ -53,6 +53,9 @@ include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bo
 include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
 
+// SEACR dev
+include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows/main.nf'
+
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
 -------------------------------------------------------------------------------------------------------------------------------*/
@@ -102,7 +105,7 @@ workflow {
     // Align to genome
     bt2_genome_align( params.modules['bowtie2_align'], cutadapt.out.fastq, params.genome_index )
 
-    // Align to spike-in genome
+    // Align to spike-in genome          
     bt2_spike_in_align( params.modules['bowtie2_spike_in'], cutadapt.out.fastq, params.spike_in_index ) 
 
     // Duplicate removal? 
@@ -111,6 +114,12 @@ workflow {
     // Spike-in calibration and normalisation
 
     // Peak-calling
+    /// SEACR
+    /// prepare BAM files for SEACR input
+    
+
+    
+    /// Run SEACR
 
 
 
