@@ -102,7 +102,7 @@ workflow {
     // Align to genome
     bt2_genome_align( params.modules['bowtie2_align'], cutadapt.out.fastq, params.genome_index )
 
-    // Align to spike-in genome
+    // Align to spike-in genome          
     bt2_spike_in_align( params.modules['bowtie2_spike_in'], cutadapt.out.fastq, params.spike_in_index ) 
 
     // Duplicate removal? 
@@ -111,6 +111,9 @@ workflow {
     // Spike-in calibration and normalisation
 
     // Peak-calling
+    /// SEACR
+    /// prepare BAM files for SEACR input
+    /// Run SEACR
 
 
 
