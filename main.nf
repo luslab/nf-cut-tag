@@ -116,7 +116,7 @@ workflow {
     // Peak-calling
     /// SEACR
     /// prepare BAM files for SEACR input
-    paired_bam_to_bedgraph ( bt2_genome_align.out.bam )
+    paired_bam_to_bedgraph ( bt2_genome_align.out.bam , params.general_genome )
 
     
     /// Run SEACR
