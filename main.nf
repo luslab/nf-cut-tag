@@ -54,11 +54,15 @@ include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/
 include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
 
 // SEACR dev
-include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows/main.nf'
+include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
+//include { paired_bam_to_bedgraph as seacr_data_control} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
 -------------------------------------------------------------------------------------------------------------------------------*/
+params.no_fastqc = ''
+// params.input = ''
+// params.control = ''
 // params.genome_index = ''
 // params.spike_in_index = ''
 
@@ -78,6 +82,7 @@ log.info luslab_header()
 Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
 // Channel setup
+//ch_initial = Channel.from( params.input, params.control )
 
 // Run workflow
 
@@ -116,9 +121,9 @@ workflow {
     // Peak-calling
     /// SEACR
     /// prepare BAM files for SEACR input
-    paired_bam_to_bedgraph ( bt2_genome_align.out.bam , params.general_genome )
+    seacr_data_input ( bt2_genome_align.out.bam , params.general_genome )
+    //seacr_data_contol ( )
 
-    
     /// Run SEACR
 
 
