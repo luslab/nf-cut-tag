@@ -52,6 +52,7 @@ include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
+include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 
 // SEACR dev
 include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
@@ -111,7 +112,7 @@ workflow {
     bt2_genome_align( params.modules['bowtie2_align'], cutadapt.out.fastq, params.genome_index )
 
     // Align to spike-in genome          
-    bt2_spike_in_align( params.modules['bowtie2_spike_in'], cutadapt.out.fastq, params.spike_in_index ) 
+    //bt2_spike_in_align( params.modules['bowtie2_spike_in'], cutadapt.out.fastq, params.spike_in_index ) 
 
     // Duplicate removal? 
     //umitools_dedup( params.modules['umi_tools'], bt2_genome_align.out.bam)
@@ -121,10 +122,11 @@ workflow {
     // Peak-calling
     /// SEACR
     /// prepare BAM files for SEACR input
-    seacr_data_input ( bt2_genome_align.out.bam , params.general_genome )
+    //seacr_data_input ( bt2_genome_align.out.bam , params.general_genome )
     //seacr_data_contol ( )
 
     /// Run SEACR
+    //seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, params.control) 
 
 
 
