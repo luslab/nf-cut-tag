@@ -16,15 +16,18 @@ workflow pre_peak_process {
     take: genome_ind
     main:
 
-    // Structure input
-    fastq_metadata( reads )
+        // Structure input
+        fastq_metadata( reads )
 
-    // Run fastqc
-    fastqc( flow_params['fastqc'], fastq_metadata.out )
+        // Run fastqc
+        fastqc( flow_params['fastqc'], fastq_metadata.out )
 
-    // Adapter trimming
-    cutadapt( flow_params['cutadapt'], fastq_metadata.out )
+        // Adapter trimming
+        cutadapt( flow_params['cutadapt'], fastq_metadata.out )
 
-    // Align to genome
-    bowtie2_align( flow_params['bowtie2_align'], cutadapt.out.fastq, genome_ind )
+        // Align to genome
+        bowtie2_align( flow_params['bowtie2_align'], cutadapt.out.fastq, genome_ind )
+
+    emit:
+        bam_file = bowtie2_align.out.bam
 }
