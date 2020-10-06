@@ -58,6 +58,7 @@ include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 
 // SEACR dev
 include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
+include { paired_bam_to_bedgraph as seacr_control_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 //include { paired_bam_to_bedgraph as seacr_data_control} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 
 
@@ -108,9 +109,13 @@ workflow {
 
     // Input data processing
     pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )
+    seacr_data_input( pre_peak_process_data.out.bam_file, params.general_genome)
 
     // Control data processing 
     pre_peak_process_control( params.control, params.control_params, params.genome_index ) 
+    seacr_control_input( pre_peak_process_control.out.bam_file, params.general_genome)
+    // SEACR peak caller
+    seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, seacr_control_input.out.bedgraph )    
 
 
 }
