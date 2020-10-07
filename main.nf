@@ -56,6 +56,8 @@ include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/
 include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
 include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 
+
+
 // SEACR dev
 include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 include { paired_bam_to_bedgraph as seacr_control_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
@@ -98,6 +100,13 @@ include { pre_peak_process as pre_peak_process_data } from './workflows/main.nf'
 include { pre_peak_process as pre_peak_process_control } from './workflows/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
+Channels
+-------------------------------------------------------------------------------------------------------------------------------*/
+
+Channel
+    .fromPath("$baseDir/assets/multiqc_config.yaml")
+    .set { ch_multiqc_config }
+/*-----------------------------------------------------------------------------------------------------------------------------
 Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
 // Channel setup
@@ -114,8 +123,14 @@ workflow {
     // Control data processing 
     pre_peak_process_control( params.control, params.control_params, params.genome_index ) 
     seacr_control_input( pre_peak_process_control.out.bam_file, params.general_genome)
+
+    // MultiQC - for now implement for each experiment, but see if we can do onComplete too
+
+
+
     // SEACR peak caller
     seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, seacr_control_input.out.bedgraph )    
+
 
 
 }
