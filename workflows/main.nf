@@ -28,6 +28,8 @@ workflow pre_peak_process {
         // Align to genome
         bowtie2_align( flow_params['bowtie2_align'], cutadapt.out.fastq, genome_ind )
 
-    emit:
-        bam_file = bowtie2_align.out.bam
+    emit: bam_file = bowtie2_align.out.bam
+    emit: fastqc_path = fastqc.out.report
+    emit: cutadapt_path = cutadapt.out.report
+    emit: bt2_path = bowtie2_align.out.report
 }
