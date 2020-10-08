@@ -49,7 +49,8 @@ include { check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
 include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
-include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
+include { multiqc as multiqc_data} from './luslab-nf-modules/tools/multiqc/main.nf'
+include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
@@ -100,18 +101,31 @@ include { pre_peak_process as pre_peak_process_data } from './workflows/main.nf'
 include { pre_peak_process as pre_peak_process_control } from './workflows/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
-Channels
+Channel setup
 -------------------------------------------------------------------------------------------------------------------------------*/
+//ch_initial = Channel.from( params.input, params.control )
 
 Channel
-    .fromPath("$baseDir/assets/multiqc_config.yaml")
+    .fromPath('./assets/multiqc_config.yml')
     .set { ch_multiqc_config }
+
+
+
+// Channel
+//     .fromPath( pre_peak_process_data.out.fastqc_path )
+//     .mix( pre_peak_process_data.out.cutadapt_path, pre_peak_process_data.out.bt2_path )
+//     .collect()
+//     .set { ch_data_multiqc }
+
+// Channel
+//     .fromPath( pre_peak_process_control.out.fastqc_path )
+//     .mix( pre_peak_process_control.out.cutadapt_path, pre_peak_process_control.out.bt2_path )
+//     .collect()
+//     .set { ch_control_multiqc }
+
 /*-----------------------------------------------------------------------------------------------------------------------------
 Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
-// Channel setup
-//ch_initial = Channel.from( params.input, params.control )
-
 // Run workflow
 
 workflow {
@@ -124,9 +138,30 @@ workflow {
     pre_peak_process_control( params.control, params.control_params, params.genome_index ) 
     seacr_control_input( pre_peak_process_control.out.bam_file, params.general_genome)
 
+
+    // Channels
+
+    Channel
+        .value( pre_peak_process_data.out.fastqc_path )
+        .mix( pre_peak_process_data.out.cutadapt_path, pre_peak_process_data.out.bt2_path )
+        //.collect()
+        .set { ch_data_multiqc }
+
+    Channel
+        .value( pre_peak_process_control.out.fastqc_path )
+        .mix( pre_peak_process_control.out.cutadapt_path, pre_peak_process_control.out.bt2_path )
+        //.collect()
+        .set { ch_control_multiqc }
+
+    // ch_data_multiqc.view()
+    // ch_control_multiqc.view()
+
     // MultiQC - for now implement for each experiment, but see if we can do onComplete too
+    // Data MultiQC
+    multiqc_data( params.modules['multiqc'], ch_multiqc_config, ch_data_multiqc )
 
-
+    // Control MultiQC
+    multiqc_control( params.modules['multiqc'], ch_multiqc_config, ch_control_multiqc )
 
     // SEACR peak caller
     seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, seacr_control_input.out.bedgraph )    
