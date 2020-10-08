@@ -106,7 +106,7 @@ Channel setup
 //ch_initial = Channel.from( params.input, params.control )
 
 Channel
-    .fromPath('./assets/multiqc_config.yml')
+    .fromPath("$baseDir/assets/multiqc_config.yml")
     .set { ch_multiqc_config }
 
 
