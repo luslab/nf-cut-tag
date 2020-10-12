@@ -44,31 +44,32 @@ Module global params
 Module inclusions
 -------------------------------------------------------------------------------------------------------------------------------*/
 
-include { luslab_header } from './luslab-nf-modules/tools/luslab_util/main.nf'
-include { check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
-
+include { luslab_header; build_debug_param_summary; check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
-include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
-include { multiqc as multiqc_data} from './luslab-nf-modules/tools/multiqc/main.nf'
-include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
-include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
-include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
-include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
-include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
-include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
+include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 
-
+//include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
+//include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
+//include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
+//include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
+//include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
+//include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 
 // SEACR dev
-include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
-include { paired_bam_to_bedgraph as seacr_control_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
+//include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
+//include { paired_bam_to_bedgraph as seacr_control_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 //include { paired_bam_to_bedgraph as seacr_data_control} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 
+/*-----------------------------------------------------------------------------------------------------------------------------
+Sub workflows
+-------------------------------------------------------------------------------------------------------------------------------*/
+
+include { qc_align as qc_align_exp; qc_align as qc_align_ctr } from './workflows/qc_align/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
 -------------------------------------------------------------------------------------------------------------------------------*/
-params.no_fastqc = ''
+//params.no_fastqc = ''
 // params.input = ''
 // params.control = ''
 // params.genome_index = ''
@@ -76,10 +77,10 @@ params.no_fastqc = ''
 
 // Module paramaters may need to be different for the workflow concerning the C+T data and the control data
 // CUT&Tag data params
-params.cut_tag_params = params.modules
+//params.cut_tag_params = params.modules
 
 // Control data params 
-params.control_params = params.modules
+//params.control_params = params.modules
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Init
@@ -88,17 +89,15 @@ Init
 // Show banner
 log.info luslab_header()
 
+// Debug params
+if(params.verbose){
+    log.info build_debug_param_summary()
+}
+
 // Show work summary
 
 // Check inputs
 // check_params(['genome']) //will throw up error if these required parameters are not provided 
-
-/*-----------------------------------------------------------------------------------------------------------------------------
-Sub workflows
--------------------------------------------------------------------------------------------------------------------------------*/
-// pipeline workflows
-include { pre_peak_process as pre_peak_process_data } from './workflows/main.nf'
-include { pre_peak_process as pre_peak_process_control } from './workflows/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Channel setup
@@ -109,7 +108,9 @@ Channel
     .fromPath("$baseDir/assets/multiqc_config.yml")
     .set { ch_multiqc_config }
 
-
+Channel
+    .fromPath(params.genome_index)
+    .set { ch_genome_index }
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -126,48 +127,58 @@ Channel
 /*-----------------------------------------------------------------------------------------------------------------------------
 Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
-// Run workflow
 
 workflow {
+    // Load design file
+    fastq_metadata( params.input )
+
+    //Index genome based on parameter
+    //TODO
+
+    qc_align_exp( fastq_metadata.out.metadata, ch_genome_index, params)
+
+    qc_align_exp.out.bam | view
+    qc_align_exp.out.bt2 | view
+    qc_align_exp.out.fastqc_report | view
+    qc_align_exp.out.cutadapt_report | view
+
+    multiqc( params.modules['multiqc'], ch_multiqc_config, qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report) )
 
     // Input data processing
-    pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )
-    seacr_data_input( pre_peak_process_data.out.bam_file, params.general_genome)
+    //pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )
+    //seacr_data_input( pre_peak_process_data.out.bam_file, params.general_genome)
 
     // Control data processing 
-    pre_peak_process_control( params.control, params.control_params, params.genome_index ) 
-    seacr_control_input( pre_peak_process_control.out.bam_file, params.general_genome)
+    //pre_peak_process_control( params.control, params.control_params, params.genome_index ) 
+    //seacr_control_input( pre_peak_process_control.out.bam_file, params.general_genome)
 
 
     // Channels
 
-    Channel
-        .value( pre_peak_process_data.out.fastqc_path )
-        .mix( pre_peak_process_data.out.cutadapt_path, pre_peak_process_data.out.bt2_path )
+    //Channel
+    //    .value( pre_peak_process_data.out.fastqc_path )
+    //    .mix( pre_peak_process_data.out.cutadapt_path, pre_peak_process_data.out.bt2_path )
         //.collect()
-        .set { ch_data_multiqc }
+    //    .set { ch_data_multiqc }
 
-    Channel
-        .value( pre_peak_process_control.out.fastqc_path )
-        .mix( pre_peak_process_control.out.cutadapt_path, pre_peak_process_control.out.bt2_path )
+   // Channel
+    //    .value( pre_peak_process_control.out.fastqc_path )
+    //    .mix( pre_peak_process_control.out.cutadapt_path, pre_peak_process_control.out.bt2_path )
         //.collect()
-        .set { ch_control_multiqc }
+    //    .set { ch_control_multiqc }
 
     // ch_data_multiqc.view()
     // ch_control_multiqc.view()
 
     // MultiQC - for now implement for each experiment, but see if we can do onComplete too
     // Data MultiQC
-    multiqc_data( params.modules['multiqc'], ch_multiqc_config, ch_data_multiqc )
+   // multiqc_data( params.modules['multiqc'], ch_multiqc_config, ch_data_multiqc )
 
     // Control MultiQC
-    multiqc_control( params.modules['multiqc'], ch_multiqc_config, ch_control_multiqc )
+   // multiqc_control( params.modules['multiqc'], ch_multiqc_config, ch_control_multiqc )
 
     // SEACR peak caller
-    seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, seacr_control_input.out.bedgraph )    
-
-
-
+   // seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, seacr_control_input.out.bedgraph )
 }
 
 
