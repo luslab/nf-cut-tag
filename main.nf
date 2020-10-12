@@ -15,6 +15,8 @@ Luscombe lab CUT&Tag analysis pipeline.
     --skip_trim         skip adapter/primer trimming step
     --no_fastqc         skip fastqc
 
+    --genome            fasta file of genome
+    --bt2_index         bowtie2 index of genome (used instead of genome fasta file)
 
 */
 
@@ -109,9 +111,12 @@ Channel
     .fromPath("$baseDir/assets/multiqc_config.yml")
     .set { ch_multiqc_config }
 
-Channel
-    .fromPath(params.genome)
-    .set { ch_genome }
+if (params.genome) {
+    Channel
+        .fromPath(params.genome)
+        .set { ch_genome }
+}
+
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -133,14 +138,34 @@ workflow {
     // Load design file
     fastq_metadata( params.input )
 
+    // fastq_metadata.out.metadata | view
+
+    //bowtie2_build( params.modules['bowtie2_build'], ch_genome )
+
     //TODO Auto-detect index or genome to index
+    if (params.genome && !params.bt2_index){
+        bowtie2_build( params.modules['bowtie2_build'], ch_genome )
 
-    bowtie2_build( params.modules['bowtie2_build'], ch_genome )
+        ch_bt2_index = bowtie2_build.out.bowtieIndex.collect()
+        
+        ch_bt2_index | view
 
-    bowtie2_build.out.bowtieIndex | view
-    bowtie2_build.out.report | view
+    } else {
+        Channel
+            .fromPath(params.bt2_index)
+            .set { ch_bt2_index }
+    }
+    
+    ch_bt2_index | view
 
-    qc_align_exp( fastq_metadata.out.metadata, bowtie2_build.out.bowtieIndex.collect(), params)
+
+    // ch_bt2_index | view
+
+    // bowtie2_build.out.bowtieIndex | view
+    // bowtie2_build.out.report | view
+
+    qc_align_exp( fastq_metadata.out.metadata, ch_bt2_index, params)
+    //qc_align_exp( fastq_metadata.out.metadata, bowtie2_build.out.bowtieIndex.collect(), params)
 
     //qc_align_exp.out.bam | view
     //qc_align_exp.out.bt2_report | view
