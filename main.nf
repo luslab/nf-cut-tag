@@ -47,6 +47,7 @@ Module inclusions
 include { luslab_header; build_debug_param_summary; check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
 include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
+include { bowtie2_build } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
@@ -109,8 +110,8 @@ Channel
     .set { ch_multiqc_config }
 
 Channel
-    .fromPath(params.genome_index)
-    .set { ch_genome_index }
+    .fromPath(params.genome)
+    .set { ch_genome }
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -132,10 +133,14 @@ workflow {
     // Load design file
     fastq_metadata( params.input )
 
-    //Index genome based on parameter
-    //TODO
+    //TODO Auto-detect index or genome to index
 
-    qc_align_exp( fastq_metadata.out.metadata, ch_genome_index, params)
+    bowtie2_build( params.modules['bowtie2_build'], ch_genome )
+
+    bowtie2_build.out.bowtieIndex | view
+    bowtie2_build.out.report | view
+
+    qc_align_exp( fastq_metadata.out.metadata, bowtie2_build.out.bowtieIndex.collect(), params)
 
     //qc_align_exp.out.bam | view
     //qc_align_exp.out.bt2_report | view
