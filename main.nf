@@ -45,10 +45,9 @@ Module inclusions
 -------------------------------------------------------------------------------------------------------------------------------*/
 
 include { luslab_header; build_debug_param_summary; check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
+include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
+include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 
-//include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
-//include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
-//include { multiqc as multiqc_data} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 //include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
@@ -60,6 +59,12 @@ include { luslab_header; build_debug_param_summary; check_params } from './lusla
 //include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 //include { paired_bam_to_bedgraph as seacr_control_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
 //include { paired_bam_to_bedgraph as seacr_data_control} from './luslab-nf-modules/workflows/bed_flows/main.nf'
+
+/*-----------------------------------------------------------------------------------------------------------------------------
+Sub workflows
+-------------------------------------------------------------------------------------------------------------------------------*/
+
+include { qc_align as qc_align_exp; qc_align as qc_align_ctr } from './workflows/qc_align/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
@@ -95,13 +100,6 @@ if(params.verbose){
 // check_params(['genome']) //will throw up error if these required parameters are not provided 
 
 /*-----------------------------------------------------------------------------------------------------------------------------
-Sub workflows
--------------------------------------------------------------------------------------------------------------------------------*/
-// pipeline workflows
-//include { pre_peak_process as pre_peak_process_data } from './workflows/main.nf'
-//include { pre_peak_process as pre_peak_process_control } from './workflows/main.nf'
-
-/*-----------------------------------------------------------------------------------------------------------------------------
 Channel setup
 -------------------------------------------------------------------------------------------------------------------------------*/
 //ch_initial = Channel.from( params.input, params.control )
@@ -109,6 +107,10 @@ Channel setup
 Channel
     .fromPath("$baseDir/assets/multiqc_config.yml")
     .set { ch_multiqc_config }
+
+Channel
+    .fromPath(params.genome_index)
+    .set { ch_genome_index }
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -125,9 +127,22 @@ Channel
 /*-----------------------------------------------------------------------------------------------------------------------------
 Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
-// Run workflow
 
 workflow {
+    // Load design file
+    fastq_metadata( params.input )
+
+    //Index genome based on parameter
+    //TODO
+
+    qc_align_exp( fastq_metadata.out.metadata, ch_genome_index, params)
+
+    qc_align_exp.out.bam | view
+    qc_align_exp.out.bt2 | view
+    qc_align_exp.out.fastqc_report | view
+    qc_align_exp.out.cutadapt_report | view
+
+    multiqc( params.modules['multiqc'], ch_multiqc_config, qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report) )
 
     // Input data processing
     //pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )

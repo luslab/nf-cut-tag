@@ -1,2 +1,2 @@
 sample_id,experiment,group,data1,data2
-h3k27me3_rep1,h3k27me3,rep1,$baseDir/test_data/h3k27me3_rep1_r1.fastq.gz,$baseDir/test_data/h3k27me3_rep1_r2.fastq.gz
+h3k27me3_rep1,h3k27me3,rep1,$baseDir/../test_data/h3k27me3_rep1_r1.fastq.gz,$baseDir/../test_data/h3k27me3_rep1_r2.fastq.gz
