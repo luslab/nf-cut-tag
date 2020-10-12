@@ -142,7 +142,7 @@ workflow {
     qc_align_exp.out.fastqc_report | view
     qc_align_exp.out.cutadapt_report | view
 
-    multiqc( params.modules['multiqc'], ch_multiqc_config, qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report) )
+    multiqc( params.modules['multiqc'], ch_multiqc_config, qc_align_exp.out.cutadapt_report) //qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report) )
 
     // Input data processing
     //pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )
