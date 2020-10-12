@@ -25,5 +25,5 @@ workflow qc_align {
     emit: bam = bowtie2_align.out.bam
     emit: fastqc_report = fastqc.out.report
     emit: cutadapt_report = cutadapt.out.report
-    emit: bt2 = bowtie2_align.out.report
+    emit: bt2_report = bowtie2_align.out.report
 }
