@@ -137,12 +137,18 @@ workflow {
 
     qc_align_exp( fastq_metadata.out.metadata, ch_genome_index, params)
 
-    qc_align_exp.out.bam | view
-    qc_align_exp.out.bt2 | view
-    qc_align_exp.out.fastqc_report | view
-    qc_align_exp.out.cutadapt_report | view
+    //qc_align_exp.out.bam | view
+    //qc_align_exp.out.bt2_report | view
+    //qc_align_exp.out.fastqc_report | view
+    //qc_align_exp.out.cutadapt_report | view
 
-    multiqc( params.modules['multiqc'], ch_multiqc_config, qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report) )
+    //qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report).collect() | view
+        //.subscribe {log.info("$it")}
+
+    multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
+        qc_align_exp.out.fastqc_report
+        .mix(qc_align_exp.out.cutadapt_report)
+        .collect() )
 
     // Input data processing
     //pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )
