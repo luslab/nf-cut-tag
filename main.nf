@@ -19,6 +19,8 @@ Luscombe lab CUT&Tag analysis pipeline.
     --bt2_index         bowtie2 index of genome (used instead of genome fasta file)
     --spike_in_genome   spike-in genome, either in fasta/compressed fasta (or bowtie2 index)??
 
+
+    //TODO add options for overriding module params, especially bt2 aligner
 */
 
 
@@ -54,7 +56,7 @@ include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 
 include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from './luslab-nf-modules/tools/bowtie2/main.nf'
-include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
+include { bowtie2_align as bt2_align_exp; bowtie2_align as bt2_align_spike_in } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
@@ -129,6 +131,7 @@ if (params.spike_in_genome) {
 }
 
 
+
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
 //     .mix( pre_peak_process_data.out.cutadapt_path, pre_peak_process_data.out.bt2_path )
@@ -146,17 +149,60 @@ Main workflow
 -------------------------------------------------------------------------------------------------------------------------------*/
 
 workflow {
+    /* ---------- Parameter checks to see if bowtie2 indexes need to be built ---------*/
+
+    if (params.genome && !params.bt2_index) {
+        bt2_build_exp( params.modules['bowtie2_build'], ch_genome )
+
+        ch_bt2_index = bt2_build_exp.out.bowtieIndex.collect()
+
+    } else {
+        Channel
+            .fromPath(params.bt2_index)
+            .set { ch_bt2_index }
+    }
+
+    // TODO Auto-detect spike-in genome 
+    // Make bowtie2 index of spike-in genome
+    if (params.spike_in_genome) {
+        bt2_build_spike( params.modules['bowtie2_build'], ch_spike_in_genome )
+
+        ch_bt2_spike_in = bt2_build_spike.out.bowtieIndex.collect()
+
+    } else {
+        Channel
+            .fromPath(params.spike_in_genome)
+            .set { ch_bt2_spike_in }
+    }
+
+    /* ---------- Main Workflow ---------*/
+
     // Load design file
     fastq_metadata( params.input )
 
     // Run fastqc
-    fastqc( module_params.modules['fastqc'], fastq_metadata.out.metadata )
+    fastqc( params.modules['fastqc'], fastq_metadata.out.metadata )
 
     // Adapter trimming
-    cutadapt( module_params.modules['cutadapt'], fastq_metadata.out.metadata )
+    cutadapt( params.modules['cutadapt'], fastq_metadata.out.metadata )
 
     // Align to genome
-    bowtie2_align( module_params.modules['bowtie2_align'], cutadapt.out.fastq, ch_genome )
+    bt2_align_exp( params.modules['bowtie2_align_exp'], cutadapt.out.fastq, ch_bt2_index )
+
+    bt2_align_exp.out.report | view
+
+    // Align to spike-in genome
+    bt2_align_spike_in( params.modules['bowtie2_align_spike_in'], cutadapt.out.fastq, ch_bt2_spike_in )
+
+    bt2_align_spike_in.out.report | view
+    
+    // Collect reports to produce MultiQC reports
+    multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
+        fastqc.out.report
+        .mix(cutadapt.out.report)
+        .mix(bt2_align_exp.out.report)
+        .mix(bt2_align_spike_in.out.report)
+        .collect() )
 
 
 //-------------------------------------------------------------------------------------------------------------------------------*/
@@ -167,35 +213,35 @@ workflow {
     //bowtie2_build( params.modules['bowtie2_build'], ch_genome )
 
     // Auto-detect index or genome to index
-    if (params.genome && !params.bt2_index) {
-        bt2_build_exp( params.modules['bowtie2_build'], ch_genome )
+    // if (params.genome && !params.bt2_index) {
+    //     bt2_build_exp( params.modules['bowtie2_build'], ch_genome )
 
-        ch_bt2_index = bowtie2_build.out.bowtieIndex.collect()
+    //     ch_bt2_index = bowtie2_build.out.bowtieIndex.collect()
 
-    } else {
-        Channel
-            .fromPath(params.bt2_index)
-            .set { ch_bt2_index }
-    }
+    // } else {
+    //     Channel
+    //         .fromPath(params.bt2_index)
+    //         .set { ch_bt2_index }
+    // }
 
-        // TODO Auto-detect spike-in genome 
-        // Make bowtie2 index of spike-in genome
-    if (params.spike_in_genome) {
-        bt2_build_spike( params.modules['bowtie2_build'], ch_spike_in_genome )
+    //     // TODO Auto-detect spike-in genome 
+    //     // Make bowtie2 index of spike-in genome
+    // if (params.spike_in_genome) {
+    //     bt2_build_spike( params.modules['bowtie2_build'], ch_spike_in_genome )
 
-        ch_bt2_spike_in = bowtie2_build.out.bowtieIndex.collect()
+    //     ch_bt2_spike_in = bowtie2_build.out.bowtieIndex.collect()
 
-    } else {
-        Channel
-            .fromPath(params.spike_in_genome)
-            .set { ch_bt2_spike_in }
-    }
+    // } else {
+    //     Channel
+    //         .fromPath(params.spike_in_genome)
+    //         .set { ch_bt2_spike_in }
+    // }
 
     // ch_bt2_index | view
     // bowtie2_build.out.bowtieIndex | view
     // bowtie2_build.out.report | view
 
-    qc_align_exp( fastq_metadata.out.metadata, ch_bt2_index, params)
+    //qc_align_exp( fastq_metadata.out.metadata, ch_bt2_index, params)
     //qc_align_exp( fastq_metadata.out.metadata, bowtie2_build.out.bowtieIndex.collect(), params)
 
     //qc_align_exp.out.bam | view
@@ -212,11 +258,11 @@ workflow {
 
     // Collect reports to produce MultiQC report
 
-    multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
-        qc_align_exp.out.fastqc_report
-        .mix(qc_align_exp.out.cutadapt_report)
-        .mix(qc_align_exp.out.bt2_report)
-        .collect() )
+    // multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
+    //     qc_align_exp.out.fastqc_report
+    //     .mix(qc_align_exp.out.cutadapt_report)
+    //     .mix(qc_align_exp.out.bt2_report)
+    //     .collect() )
 
     // Input data processing
     //pre_peak_process_data( params.input, params.cut_tag_params , params.genome_index )
