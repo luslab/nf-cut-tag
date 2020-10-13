@@ -147,16 +147,12 @@ workflow {
         bowtie2_build( params.modules['bowtie2_build'], ch_genome )
 
         ch_bt2_index = bowtie2_build.out.bowtieIndex.collect()
-        
-        ch_bt2_index | view
 
     } else {
         Channel
             .fromPath(params.bt2_index)
             .set { ch_bt2_index }
     }
-    
-    ch_bt2_index | view
 
 
     // ch_bt2_index | view
@@ -178,6 +174,7 @@ workflow {
     multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
         qc_align_exp.out.fastqc_report
         .mix(qc_align_exp.out.cutadapt_report)
+        .mix(qc_align_exp.out.bt2_report)
         .collect() )
 
     // Input data processing
