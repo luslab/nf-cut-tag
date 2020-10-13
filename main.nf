@@ -17,6 +17,7 @@ Luscombe lab CUT&Tag analysis pipeline.
 
     --genome            fasta file of genome
     --bt2_index         bowtie2 index of genome (used instead of genome fasta file)
+    --spike_in_genome   spike-in genome, either in fasta/compressed fasta (or bowtie2 index)??
 
 */
 
@@ -48,8 +49,12 @@ Module inclusions
 
 include { luslab_header; build_debug_param_summary; check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
+include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
+include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
+
 include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
-include { bowtie2_build } from './luslab-nf-modules/tools/bowtie2/main.nf'
+include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from './luslab-nf-modules/tools/bowtie2/main.nf'
+include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
@@ -67,7 +72,7 @@ include { bowtie2_build } from './luslab-nf-modules/tools/bowtie2/main.nf'
 Sub workflows
 -------------------------------------------------------------------------------------------------------------------------------*/
 
-include { qc_align as qc_align_exp; qc_align as qc_align_ctr } from './workflows/qc_align/main.nf'
+//include { qc_align as qc_align_exp; qc_align as qc_align_ctr } from './workflows/qc_align/main.nf'
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Pipeline params
@@ -117,6 +122,12 @@ if (params.genome) {
         .set { ch_genome }
 }
 
+if (params.spike_in_genome) {
+    Channel
+        .fromPath(params.genome)
+        .set { ch_spike_in_genome }
+}
+
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -138,13 +149,26 @@ workflow {
     // Load design file
     fastq_metadata( params.input )
 
+    // Run fastqc
+    fastqc( module_params.modules['fastqc'], fastq_metadata.out.metadata )
+
+    // Adapter trimming
+    cutadapt( module_params.modules['cutadapt'], fastq_metadata.out.metadata )
+
+    // Align to genome
+    bowtie2_align( module_params.modules['bowtie2_align'], cutadapt.out.fastq, ch_genome )
+
+
+//-------------------------------------------------------------------------------------------------------------------------------*/
+
+
     // fastq_metadata.out.metadata | view
 
     //bowtie2_build( params.modules['bowtie2_build'], ch_genome )
 
-    //TODO Auto-detect index or genome to index
-    if (params.genome && !params.bt2_index){
-        bowtie2_build( params.modules['bowtie2_build'], ch_genome )
+    // Auto-detect index or genome to index
+    if (params.genome && !params.bt2_index) {
+        bt2_build_exp( params.modules['bowtie2_build'], ch_genome )
 
         ch_bt2_index = bowtie2_build.out.bowtieIndex.collect()
 
@@ -154,9 +178,20 @@ workflow {
             .set { ch_bt2_index }
     }
 
+        // TODO Auto-detect spike-in genome 
+        // Make bowtie2 index of spike-in genome
+    if (params.spike_in_genome) {
+        bt2_build_spike( params.modules['bowtie2_build'], ch_spike_in_genome )
+
+        ch_bt2_spike_in = bowtie2_build.out.bowtieIndex.collect()
+
+    } else {
+        Channel
+            .fromPath(params.spike_in_genome)
+            .set { ch_bt2_spike_in }
+    }
 
     // ch_bt2_index | view
-
     // bowtie2_build.out.bowtieIndex | view
     // bowtie2_build.out.report | view
 
@@ -170,6 +205,12 @@ workflow {
 
     //qc_align_exp.out.fastqc_report.mix(qc_align_exp.out.cutadapt_report).collect() | view
         //.subscribe {log.info("$it")}
+
+    //TODO Spike-in alignemnet
+
+
+
+    // Collect reports to produce MultiQC report
 
     multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
         qc_align_exp.out.fastqc_report
