@@ -62,6 +62,7 @@ include { meta_report_annotate as exp_meta_annotate ; meta_report_annotate as sp
 include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows/main.nf'
 
 include { samtools_faidx } from './luslab-nf-modules/tools/samtools/main.nf'
+include { decompress; awk as awk_fai } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
 
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
@@ -129,9 +130,22 @@ if (params.genome) {
         .set { ch_genome }
 }
 
+meta_genome =[
+    [[:], params.genome]
+]
+
 Channel
-    .fromPath(params.genome)
-    .set { ch_genome_generate_fai }
+    .from(meta_genome)
+    .set { ch_genome_decompress }
+
+//ch_genome_decompress | view
+
+// Channel
+//     .fromPath(params.genome)
+//     .map { row -> [ [:], [file(row[1], checkIfExists: true)]] }
+//     .set { ch_genome_decompress }
+
+// ch_genome_decompress | view
 
 if (params.spike_in_genome) {
     Channel
@@ -214,12 +228,17 @@ workflow {
     spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_awk, params.modules )
     //spike_in_meta_annotate.out.annotated_input | view
 
+    // Get scale factor for normalisation
+
     // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
-    samtools_faidx( params.modules['samtools_faidx'] ch_genome_generate_fai )
+    decompress( ch_genome_decompress )
+    //decompress.out.file_no_meta | view
+    samtools_faidx( params.modules['samtools_faidx'], decompress.out.file_no_meta )
+
+    awk_fai( params.modules['awk_fai'], samtools_faidx.out.indexedFasta )
+    //samtools_faidx.out.fai | view 
     paired_bam_to_bedgraph( bt2_align_exp.out.bam, samtools_faidx.out.fai )
 
-
-    // Normalise against spike-in
 
     // Split experiment and control
 
