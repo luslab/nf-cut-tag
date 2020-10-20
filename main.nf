@@ -59,6 +59,7 @@ include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from
 include { bowtie2_align as bt2_align_exp; bowtie2_align as bt2_align_spike_in } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
 include { meta_report_annotate as exp_meta_annotate ; meta_report_annotate as spike_in_meta_annotate } from './luslab-nf-modules/workflows/report_flows/main.nf'
+include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows/main.nf'
 
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
@@ -125,6 +126,10 @@ if (params.genome) {
         .fromPath(params.genome)
         .set { ch_genome }
 }
+
+Channel
+    .fromPath(params.genome)
+    .set { ch_genome_bam_to_bed }
 
 if (params.spike_in_genome) {
     Channel
@@ -207,10 +212,8 @@ workflow {
     spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_awk, params.modules )
     spike_in_meta_annotate.out.annotated_input | view
 
-    // Convert bam files to bedgraphs
-    // Genome
-
-    // Spike-in genome
+    // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
+    paired_bam_to_bedgraph( bt2_align_exp.out.bam, ch_genome_bam_to_bed )
 
     // Normalise against spike-in
 
