@@ -58,6 +58,8 @@ include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { bowtie2_align as bt2_align_exp; bowtie2_align as bt2_align_spike_in } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
+include { meta_report_annotate as exp_meta_annotate ; meta_report_annotate as spike_in_meta_annotate } from './luslab-nf-modules/workflows/report_flows/main.nf'
+
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 //include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
@@ -130,7 +132,9 @@ if (params.spike_in_genome) {
         .set { ch_spike_in_genome }
 }
 
-
+Channel
+    .value("$baseDir/assets/bt2_report_to_csv.awk")
+    .set { ch_bt2_awk }
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -188,13 +192,32 @@ workflow {
 
     // Align to genome
     bt2_align_exp( params.modules['bowtie2_align_exp'], cutadapt.out.fastq, ch_bt2_index )
-
     bt2_align_exp.out.report | view
 
     // Align to spike-in genome
     bt2_align_spike_in( params.modules['bowtie2_align_spike_in'], cutadapt.out.fastq, ch_bt2_spike_in )
-
     bt2_align_spike_in.out.report | view
+
+    // Annotate metadata with bowtie2 report
+    // Genome
+    exp_meta_annotate( bt2_align_exp.out.report_meta , bt2_align_exp.out.bam, ch_bt2_awk, params.modules )
+    exp_meta_annotate.out.annotated_input | view
+
+    // Spike-in
+    spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_awk, params.modules )
+    spike_in_meta_annotate.out.annotated_input | view
+
+    // Convert bam files to bedgraphs
+    // Genome
+
+    // Spike-in genome
+
+    // Normalise against spike-in
+
+    // Split experiment and control
+
+    // SEACR peak caller
+
     
     // Collect reports to produce MultiQC reports
     multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
