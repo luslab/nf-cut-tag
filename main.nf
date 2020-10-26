@@ -238,14 +238,31 @@ workflow {
         spike_in_meta_annotate.out.annotated_input
             .combine ( ch_normalisation_c )
             .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ] }
-            // .map { row -> [ row[0].sample_id, (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ** -1 ] }
             .set { ch_scale_factor }
-        ch_scale_factor | view    
+        //ch_scale_factor | view    
     } else {
         spike_in_meta_annotate.out.annotated_input
         .map { row -> [ row[0].sample_id, 1] }
         .set { ch_scale_factor }
-    }   
+    }
+
+   // bt2_align_exp.out.bam | view
+
+    // Align scale factor and sample to parse to paired_bam_to_bedgraph
+    bt2_align_exp.out.bam
+        .map { row -> [row[0].sample_id, row ].flatten()}
+        .join ( ch_scale_factor )
+        .map { row -> row[1..(row.size() - 1)] }
+        //.set { ch_bt2_align_scale }
+        .multiMap { it ->
+            bt2_bam_tuple: it //[0..-2]
+            scale_factor: it[-1]
+        }
+        .set { ch_align_scale }
+    // ch_align_scale.bt2_bam_tuple | view
+    // ch_align_scale.scale_factor | view
+    // ch_bt2_align_scale | view
+
 
     // Produce genome size index
     decompress( ch_genome_decompress )
