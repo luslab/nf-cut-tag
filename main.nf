@@ -157,6 +157,11 @@ Channel
     .value("$baseDir/assets/bt2_report_to_csv.awk")
     .set { ch_bt2_awk }
 
+
+Channel
+    .value(params.normalisation_c)
+    .set{ ch_normalisation_c }
+
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
 //     .mix( pre_peak_process_data.out.cutadapt_path, pre_peak_process_data.out.bt2_path )
@@ -222,20 +227,32 @@ workflow {
     // Annotate metadata with bowtie2 report
     // Genome
     exp_meta_annotate( bt2_align_exp.out.report_meta , bt2_align_exp.out.bam, ch_bt2_awk, params.modules )
-    //exp_meta_annotate.out.annotated_input | view
+    // exp_meta_annotate.out.annotated_input | view
 
     // Spike-in
     spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_awk, params.modules )
     //spike_in_meta_annotate.out.annotated_input | view
 
     // Get scale factor for normalisation
+    spike_in_meta_annotate.out.annotated_input
+        .combine ( ch_normalisation_c )
+        .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ] }
+        // .map { row -> [ row[0].sample_id, (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ** -1 ] }
+        .set { ch_scale_factor }
+    ch_scale_factor | view
+
+    // exp_meta_annotate.out.annotated_input
+    //     //.join ( spike_in_meta_annotate.out.annotated_input )
+    //     .set { ch_normalised }
+
+    // ch_normalised | view
 
     // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
     decompress( ch_genome_decompress )
     //decompress.out.file_no_meta | view
     samtools_faidx( params.modules['samtools_faidx'], decompress.out.file_no_meta )
 
-    awk_fai( params.modules['awk_fai'], samtools_faidx.out.indexedFasta )
+    awk_fai( params.modules['awk_fai'], samtools_faidx.out.fasta )
     //samtools_faidx.out.fai | view 
     paired_bam_to_bedgraph( bt2_align_exp.out.bam, samtools_faidx.out.fai )
 
