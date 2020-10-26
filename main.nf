@@ -234,26 +234,27 @@ workflow {
     //spike_in_meta_annotate.out.annotated_input | view
 
     // Get scale factor for normalisation
-    spike_in_meta_annotate.out.annotated_input
-        .combine ( ch_normalisation_c )
-        .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ] }
-        // .map { row -> [ row[0].sample_id, (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ** -1 ] }
+    if (params.spike_in_genome){
+        spike_in_meta_annotate.out.annotated_input
+            .combine ( ch_normalisation_c )
+            .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ] }
+            // .map { row -> [ row[0].sample_id, (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ** -1 ] }
+            .set { ch_scale_factor }
+        ch_scale_factor | view    
+    } else {
+        spike_in_meta_annotate.out.annotated_input
+        .map { row -> [ row[0].sample_id, 1] }
         .set { ch_scale_factor }
-    ch_scale_factor | view
+    }   
 
-    // exp_meta_annotate.out.annotated_input
-    //     //.join ( spike_in_meta_annotate.out.annotated_input )
-    //     .set { ch_normalised }
-
-    // ch_normalised | view
-
-    // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
+    // Produce genome size index
     decompress( ch_genome_decompress )
     //decompress.out.file_no_meta | view
     samtools_faidx( params.modules['samtools_faidx'], decompress.out.file_no_meta )
-
     awk_fai( params.modules['awk_fai'], samtools_faidx.out.fasta )
     //samtools_faidx.out.fai | view 
+
+    // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
     paired_bam_to_bedgraph( bt2_align_exp.out.bam, samtools_faidx.out.fai )
 
 
