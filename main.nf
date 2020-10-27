@@ -255,14 +255,13 @@ workflow {
         .map { row -> row[1..(row.size() - 1)] }
         //.set { ch_bt2_align_scale }
         .multiMap { it ->
-            bt2_bam_tuple: it //[0..-2]
+            bt2_bam_tuple: it [0..-2]
             scale_factor: it[-1]
         }
         .set { ch_align_scale }
-    // ch_align_scale.bt2_bam_tuple | view
-    // ch_align_scale.scale_factor | view
+    ch_align_scale.bt2_bam_tuple | view
+    ch_align_scale.scale_factor | view
     // ch_bt2_align_scale | view
-
 
     // Produce genome size index
     decompress( ch_genome_decompress )
@@ -270,12 +269,14 @@ workflow {
     samtools_faidx( params.modules['samtools_faidx'], decompress.out.file_no_meta )
     awk_fai( params.modules['awk_fai'], samtools_faidx.out.fasta )
     //samtools_faidx.out.fai | view 
+    //awk_fai.out.file_no_meta | view
 
     // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
-    paired_bam_to_bedgraph( bt2_align_exp.out.bam, samtools_faidx.out.fai )
-
+    // paired_bam_to_bedgraph( bt2_align_exp.out.bam, samtools_faidx.out.fai )
+    paired_bam_to_bedgraph( ch_align_scale.bt2_bam_tuple, awk_fai.out.file_no_meta, ch_align_scale.scale_factor )
 
     // Split experiment and control
+
 
     // SEACR peak caller
 
