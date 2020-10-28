@@ -64,12 +64,14 @@ include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows
 include { samtools_faidx } from './luslab-nf-modules/tools/samtools/main.nf'
 include { decompress; awk as awk_fai } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
 
+include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
+
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 //include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 //include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 //include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
-//include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
+
 
 // SEACR dev
 //include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
@@ -275,9 +277,40 @@ workflow {
     paired_bam_to_bedgraph( ch_align_scale.bt2_bam_tuple, awk_fai.out.file_no_meta.collect(), ch_align_scale.scale_factor )
 
     // Split experiment and control
+    paired_bam_to_bedgraph.out.bedgraph
+        //.map { row -> [row[0].control, row ].flatten()}
+        .branch { it ->
+            ch_exp: it[0].control == 'no'
+            ch_control: it[0].control == 'yes'
+        }
+        .set { ch_split }
+    //ch_split.ch_exp | view
+    //ch_split.ch_control | view
+
+    ch_split.ch_control
+        .map { row -> [row[0].group, row ].flatten() }
+        .set { ch_control_group }
+    // ch_control_group | view
+
+    ch_split.ch_exp
+        .map { row -> [row[0].group, row ].flatten() }
+        .set { ch_exp_group }
+    // ch_exp_group | view
+
+    ch_control_group
+        .cross ( ch_exp_group )
+        .multiMap { it ->
+            ch_exp_bedgraph: it[1][1..-1]
+            ch_control_bedgraph: it[0][1..-1]
+        }
+        .set { ch_exp_ctrl_split }
+    // ch_exp_ctrl_split | view
+    // ch_exp_ctrl_split.ch_exp_bedgraph | view
+    // ch_exp_ctrl_split.ch_control_bedgraph | view
 
 
     // SEACR peak caller
+    seacr( params.modules['seacr'], ch_exp_ctrl_split.ch_exp_bedgraph, ch_exp_ctrl_split.ch_control_bedgraph )
 
     
    // Collect reports to produce MultiQC reports
