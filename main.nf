@@ -132,13 +132,20 @@ if (params.genome) {
         .set { ch_genome }
 }
 
-meta_genome =[
-    [[:], params.genome]
-]
+// Deal with compressed vs decompressed genome fasta file
+if (hasExtension(params.genome, 'gz')) {
+    meta_genome =[
+        [[:], params.genome]
+    ]
+    Channel
+        .from(meta_genome)
+        .set { ch_genome_decompress }
+} else {
+    Channel
+        .from(params.genome)
+        .set { ch_decompressed_genome }
+}
 
-Channel
-    .from(meta_genome)
-    .set { ch_genome_decompress }
 
 //ch_genome_decompress | view
 
@@ -266,9 +273,12 @@ workflow {
     // ch_bt2_align_scale | view
 
     // Produce genome size index
-    decompress( ch_genome_decompress )
+    if (hasExtension(params.genome, 'gz')) {
+        decompress( ch_genome_decompress )
+        ch_decompressed_genome = decompress.out.file_no_meta
+    }
     //decompress.out.file_no_meta | view
-    samtools_faidx( params.modules['samtools_faidx'], decompress.out.file_no_meta )
+    samtools_faidx( params.modules['samtools_faidx'], ch_decompressed_genome )
     //samtools_faidx.out.fai | view 
     awk_fai( params.modules['awk_fai'], samtools_faidx.out.fasta )
     // awk_fai.out.file_no_meta | view
