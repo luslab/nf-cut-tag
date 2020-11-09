@@ -112,6 +112,11 @@ if(params.verbose){
     log.info build_debug_param_summary()
 }
 
+// Function for checking file extensions
+def hasExtension(it, extension) {
+    it.toString().toLowerCase().endsWith(extension.toLowerCase())
+}
+
 // Show work summary
 
 // Check inputs
