@@ -163,7 +163,7 @@ if (hasExtension(params.genome, 'gz')) {
 
 if (params.spike_in_genome) {
     Channel
-        .fromPath(params.genome)
+        .fromPath(params.spike_in_genome)
         .set { ch_spike_in_genome }
 }
 
