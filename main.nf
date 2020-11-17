@@ -171,6 +171,9 @@ Channel
     .value("$baseDir/assets/bt2_report_to_csv.awk")
     .set { ch_bt2_awk }
 
+Channel
+    .value("$baseDir/assets/bt2_spike_report_to_csv.awk")
+    .set { ch_bt2_spike_awk }
 
 Channel
     .value(params.normalisation_c)
@@ -244,17 +247,17 @@ workflow {
     // exp_meta_annotate.out.annotated_input | view
 
     // Spike-in
-    spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_awk, params.modules )
-    //spike_in_meta_annotate.out.annotated_input | view
+    spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_spike_awk, params.modules )
+    // spike_in_meta_annotate.out.annotated_input | view
 
     // Get scale factor for normalisation
     if (params.spike_in_genome){
         spike_in_meta_annotate.out.annotated_input
             .combine ( ch_normalisation_c )
-            .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_total_aligned" }?.value.toInteger()) ] }
+            .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_spike_total_aligned" }?.value.toInteger()) ] }
             .set { ch_scale_factor }
        // ch_scale_factor | view    
-    } else {
+    } else { // this else doesn't make sense because there would be no spike_in_meta_out from alignment if now spike-in genome is provided
         spike_in_meta_annotate.out.annotated_input
         .map { row -> [ row[0].sample_id, 1] }
         .set { ch_scale_factor }
@@ -328,7 +331,6 @@ workflow {
 
     // SEACR peak caller
     seacr( params.modules['seacr'], ch_exp_ctrl_split.ch_exp_bedgraph, ch_exp_ctrl_split.ch_control_bedgraph )
-
     
    // Collect reports to produce MultiQC reports
     multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
@@ -337,6 +339,38 @@ workflow {
         .mix(bt2_align_exp.out.report)
         .mix(bt2_align_spike_in.out.report)
         .collect() )
+
+        // fastqc.out.report
+        // .mix(cutadapt.out.report)
+        // .mix(bt2_align_exp.out.report)
+        // .mix(bt2_align_spike_in.out.report)
+        // .collect()
+        // .view()
+
+    // Curate ultimate metadata
+    // extract sample_id for exp, meta only
+    exp_meta_annotate.out.annotated_input
+        .map { row -> [row[0].sample_id, row[0]].flatten() }
+        .set { ch_exp_meta_sample_id }
+    //ch_exp_meta_sample_id | view
+    // extract sample_id for spike, meta only
+    spike_in_meta_annotate.out.annotated_input
+        .map { row -> [row[0].sample_id, row[0]].flatten() }
+        .set { ch_spike_in_meta_sample_id }
+    
+    // join channels by sample_id
+    ch_exp_meta_sample_id
+        .join ( ch_spike_in_meta_sample_id )
+        .map { row -> row[1] << row[2] }// [bt2_spike_align1] } //, row[2].find{ it.key == "bt2_spike_align_gt1" }, row[2].find{ it.key == "bt2_spike_non_aligned" }, row[2].find{ it.key == "bt2_spike_total_aligned" } ] }
+        .set { ch_meta_all }
+    ch_meta_all.collect() | view
+
+    // exp_meta_annotate.out.annotated_input
+    //     .mix ( spike_in_meta_annotate.out.annotated_input )
+    //     .collect()
+    //     .set { meta_mix }
+
+    // meta_mix | view
 
 
 //-------------------------------------------------------------------------------------------------------------------------------*/
