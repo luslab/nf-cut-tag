@@ -362,16 +362,55 @@ workflow {
     ch_exp_meta_sample_id
         .join ( ch_spike_in_meta_sample_id )
         .map { row -> row[1] << row[2] }// [bt2_spike_align1] } //, row[2].find{ it.key == "bt2_spike_align_gt1" }, row[2].find{ it.key == "bt2_spike_non_aligned" }, row[2].find{ it.key == "bt2_spike_total_aligned" } ] }
+        .collect()
         .set { ch_meta_all }
-    ch_meta_all.collect() | view
+    // ch_meta_all | view
 
-    // exp_meta_annotate.out.annotated_input
-    //     .mix ( spike_in_meta_annotate.out.annotated_input )
-    //     .collect()
-    //     .set { meta_mix }
+    // Create delimited text file of metadata
+   //meta_file(ch_meta_all)
 
-    // meta_mix | view
+    def test_array = [
+        ['sample_id':'h3k4me3_rep2', 'experiment':'h3k4me3', 'group':'rep2', 'control':'no', 'total_reads':'1885056'],
+        ['sample_id':'h3k27me3_rep1', 'experiment':'h3k27me3', 'group':'rep1', 'control':'no', 'total_reads':'2984630'],
+        ['sample_id':'h3k27me3_rep2', 'experiment':'h3k27me3', 'group':'rep2', 'control':'no', 'total_reads':'2702260']
+    ]
 
+    println "hellooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+
+    test_str_array = test_array[0].keySet().join(",")
+    println test_str_array
+
+}
+
+
+
+// process meta_file {
+//     publishDir "${params.outdir}/meta",
+//     mode: "copy",
+//     overwrite: true,
+//     saveAs: { filename ->
+//                     if (opts.publish_results == "none") null
+//                     else filename }
+    
+//     container 'ubuntu:16.04'
+
+//     input:
+//         val(all_meta)
+
+//     output:
+//         path("meta_table.txt"), emit: meta_table
+
+//     script:
+//     meta_array = all_meta[0].keySet().join(",")
+//     all_meta.each { sample,
+//         meta_array = meta_array + sample.value().join(",") + ";"
+//     }
+
+//     """
+
+
+//     """
+// }
 
 //-------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -467,7 +506,7 @@ workflow {
 
     // SEACR peak caller
    // seacr( params.modules['seacr'], seacr_data_input.out.bedgraph, seacr_control_input.out.bedgraph )
-}
+
 
 
 
