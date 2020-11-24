@@ -375,26 +375,6 @@ workflow {
     //     ['sample_id':'h3k27me3_rep2', 'experiment':'h3k27me3', 'group':'rep2', 'control':'no', 'total_reads':'2702260']
     // ]
 
-    // test_str_array = test_array[0].keySet().join(",") + ","
-    // //test_str_array2 = test_array[0].values().join(",")
-
-    // for ( int i = 0;i<test_array.size();i++ ) {
-    //     print test_array[i]
-    //     sample_str = test_array[i].values().join(",")
-    //     if (i == test_array.size() - 1) {
-    //         test_str_array =  test_str_array + "\n" + sample_str
-    //     } else { 
-    //         test_str_array =  test_str_array + "\n" + sample_str + ","
-    //     }
-    // }
-
-    // log.info test_str_array
-    //log.info test_str_array2
-
-    // Channel
-    //     .value(test_array)
-    //     .set{ch_arr_test}
-
     meta_file ( ch_meta_all )
 
 }
@@ -418,11 +398,11 @@ process meta_file {
 
     for ( int i = 0;i<all_meta.size();i++ ) {
         sample_str = all_meta[i].values().join(",")
-        if (i == all_meta.size() - 1) {
-            arr_str =  arr_str + "\n" + sample_str
-        } else { 
-            arr_str =  arr_str + "\n" + sample_str + ","
-        }
+        // if (i == all_meta.size() - 1) {
+        arr_str =  arr_str + "\n" + sample_str
+        // } else { 
+        //     arr_str =  arr_str + "\n" + sample_str + ","
+        // }
     }
 
     """
