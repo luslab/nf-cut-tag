@@ -398,11 +398,7 @@ process meta_file {
 
     for ( int i = 0;i<all_meta.size();i++ ) {
         sample_str = all_meta[i].values().join(",")
-        // if (i == all_meta.size() - 1) {
         arr_str =  arr_str + "\n" + sample_str
-        // } else { 
-        //     arr_str =  arr_str + "\n" + sample_str + ","
-        // }
     }
 
     """
