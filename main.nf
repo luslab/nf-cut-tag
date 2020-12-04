@@ -66,6 +66,8 @@ include { decompress; awk as awk_fai } from './luslab-nf-modules/tools/luslab_li
 
 include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 
+include { python_charting } from './modules/python_charting/main.nf'
+
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 //include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
@@ -178,6 +180,10 @@ Channel
 Channel
     .value(params.normalisation_c)
     .set{ ch_normalisation_c }
+
+Channel
+    .fromPath("$baseDir/bin/cut_tag_figs.py")
+    .set{ ch_charting_script }
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -375,7 +381,12 @@ workflow {
     //     ['sample_id':'h3k27me3_rep2', 'experiment':'h3k27me3', 'group':'rep2', 'control':'no', 'total_reads':'2702260']
     // ]
 
+    // Construct and emit metadata table to csv
     meta_file ( ch_meta_all )
+    //meta_file.out.meta_table | view
+    // Produce analysis plots
+    python_charting ( ch_charting_script, meta_file.out.meta_table )
+
 
 }
 
