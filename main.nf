@@ -12,12 +12,14 @@ Luscombe lab CUT&Tag analysis pipeline.
 
 // Commandline options
 /*
-    --skip_trim         skip adapter/primer trimming step
-    --no_fastqc         skip fastqc
+    --skip_trim             skip adapter/primer trimming step
+    --no_fastqc             skip fastqc
 
-    --genome            fasta file of genome
-    --bt2_index         bowtie2 index of genome (used instead of genome fasta file)
-    --spike_in_genome   spike-in genome, either in fasta/compressed fasta (or bowtie2 index)??
+    --genome                fasta file of genome
+    --bt2_index             bowtie2 index of genome (used instead of genome fasta file)
+    --spike_in_genome       spike-in genome, either in fasta/compressed fasta (or bowtie2 index)??
+    --genome_blacklist  
+    --spike_in_blacklist    optional
 
 
     //TODO add options for overriding module params, especially bt2 aligner
@@ -58,11 +60,13 @@ include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { bowtie2_align as bt2_align_exp; bowtie2_align as bt2_align_spike_in } from './luslab-nf-modules/tools/bowtie2/main.nf'
 
-include { meta_report_annotate as exp_meta_annotate ; meta_report_annotate as spike_in_meta_annotate } from './luslab-nf-modules/workflows/report_flows/main.nf'
+include { meta_report_annotate as meta_annotate_bt2_exp; meta_report_annotate as meta_annotate_bt2_spike; meta_report_annotate as meta_annotate_dt_exp; meta_report_annotate as meta_annotate_dt_spike;} from './luslab-nf-modules/workflows/report_flows/main.nf'
 include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows/main.nf'
 
 include { samtools_faidx } from './luslab-nf-modules/tools/samtools/main.nf'
-include { decompress; awk as awk_fai } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
+include { decompress as decompress_blacklist; decompress as decompress_spike_blacklist; awk as awk_fai } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
+
+include { deeptools_bam_pe_fragment_size as dt_fragments_exp; deeptools_bam_pe_fragment_size as dt_fragments_spike } from './luslab-nf-modules/tools/deeptools/main.nf'
 
 include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 
@@ -153,28 +157,46 @@ if (hasExtension(params.genome, 'gz')) {
         .set { ch_decompressed_genome }
 }
 
-
-//ch_genome_decompress | view
-
-// Channel
-//     .fromPath(params.genome)
-//     .map { row -> [ [:], [file(row[1], checkIfExists: true)]] }
-//     .set { ch_genome_decompress }
-
-// ch_genome_decompress | view
-
 if (params.spike_in_genome) {
     Channel
         .fromPath(params.spike_in_genome)
         .set { ch_spike_in_genome }
 }
 
+// Deal with compressed vs decompressed genome blacklist
+if (hasExtension(params.genome_blacklist, 'gz')) {
+    genome_blacklist = [
+        [[:], params.genome_blacklist]
+    ]
+    Channel
+        .from(genome_blacklist)
+        .set { ch_genome_blacklist_decompress }
+} else {
+    Channel
+        .from(params.genome_blacklist)
+        .set { ch_decompressed_genome_blacklist }
+}
+
+// Deal with compressed vs decompressed spike-in blacklist
+if (hasExtension(params.spike_in_blacklist, 'gz')) {
+    spike_in_blacklist = [
+        [[:], params.spike_in_blacklist]
+    ]
+    Channel
+        .from(spike_in_blacklist)
+        .set { ch_spike_blacklist_decompress }
+} else {
+    Channel
+        .from(params.spike_in_blacklist)
+        .set { ch_decompressed_spike_blacklist }
+}
+
 Channel
-    .value("$baseDir/assets/bt2_report_to_csv.awk")
+    .value("$baseDir/assets/awk_scripts/bt2_report_to_csv.awk")
     .set { ch_bt2_awk }
 
 Channel
-    .value("$baseDir/assets/bt2_spike_report_to_csv.awk")
+    .value("$baseDir/assets/awk_scripts/bt2_spike_report_to_csv.awk")
     .set { ch_bt2_spike_awk }
 
 Channel
@@ -184,6 +206,14 @@ Channel
 Channel
     .fromPath("$baseDir/bin/cut_tag_figs.py")
     .set{ ch_charting_script }
+
+Channel
+    .value("$baseDir/assets/awk_scripts/dt_report_annotate.awk")
+    .set{ ch_dt_awk }
+
+Channel
+    .value("$baseDir/assets/awk_scripts/dt_report_annotate.awk")
+    .set{ ch_dt_spike_awk }
 
 // Channel
 //     .fromPath( pre_peak_process_data.out.fastqc_path )
@@ -228,6 +258,18 @@ workflow {
             .set { ch_bt2_spike_in }
     }
 
+    /* ---------- Decompress files if necessary ---------*/    
+
+    if (hasExtension(params.genome_blacklist, 'gz')) {
+        decompress_blacklist ( ch_genome_blacklist_decompress )
+        ch_decompressed_genome_blacklist = decompress_blacklist.out.file_no_meta
+    }
+
+    if (hasExtension(params.spike_in_blacklist, 'gz')) {
+        decompress_spike_blacklist ( ch_spike_blacklist_decompress )
+        ch_decompressed_spike_blacklist = decompress_spike_blacklist.out.file_no_meta
+    }
+
     /* ---------- Main Workflow ---------*/
 
     // Load design file
@@ -242,33 +284,45 @@ workflow {
     // Align to genome
     bt2_align_exp( params.modules['bowtie2_align_exp'], cutadapt.out.fastq, ch_bt2_index )
     //bt2_align_exp.out.report | view
+    // Annotate metadata with bt2 report
+    meta_annotate_bt2_exp( bt2_align_exp.out.report_meta, bt2_align_exp.out.bam, ch_bt2_awk, params.modules )
 
     // Align to spike-in genome
     bt2_align_spike_in( params.modules['bowtie2_align_spike_in'], cutadapt.out.fastq, ch_bt2_spike_in )
     //bt2_align_spike_in.out.report | view
+    // Annotate metadta with bt2 report
+    meta_annotate_bt2_spike( bt2_align_spike_in.out.report_meta, bt2_align_spike_in.out.bam, ch_bt2_spike_awk, params.modules)
 
-    // Annotate metadata with bowtie2 report
-    // Genome
-    exp_meta_annotate( bt2_align_exp.out.report_meta , bt2_align_exp.out.bam, ch_bt2_awk, params.modules )
-    // exp_meta_annotate.out.annotated_input | view
+    // Assess exp alignment fragments with deeptools, genome specific blacklist
+    dt_fragments_exp( params.modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_exp.out.annotated_input, ch_decompressed_genome_blacklist.collect() )
+    // Annotate exp bam with deeptools data
+    meta_annotate_dt_exp( dt_fragments_exp.out.report_meta, meta_annotate_bt2_exp.out.annotated_input, ch_dt_awk, params.modules )
 
-    // Spike-in
-    spike_in_meta_annotate( bt2_align_spike_in.out.report_meta , bt2_align_spike_in.out.bam, ch_bt2_spike_awk, params.modules )
-    // spike_in_meta_annotate.out.annotated_input | view
+    // Assess spike-in alignment fragments with deeptools, genome specific blacklist
+    dt_fragments_spike( params.modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_spike.out.annotated_input, ch_decompressed_spike_blacklist.collect() )
+    // Annotate spike-in bam with deeptools data
+    meta_annotate_dt_spike( dt_fragments_spike.out.report_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
+
+    // Define final channels for completed metadta annotation
+    final_meta_exp = meta_annotate_dt_exp.out.annotated_input
+    final_meta_spike = meta_annotate_dt_spike.out.annotated_input
 
     // Get scale factor for normalisation
     if (params.spike_in_genome){
-        spike_in_meta_annotate.out.annotated_input
+        //spike_in_meta_annotate.out.annotated_input
+        final_meta_spike
             .combine ( ch_normalisation_c )
             .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_spike_total_aligned" }?.value.toInteger()) ] }
             .set { ch_scale_factor }
-       // ch_scale_factor | view    
+       // ch_scale_factor | view
+       log.info "got here"
     } else { // this else doesn't make sense because there would be no spike_in_meta_out from alignment if now spike-in genome is provided
-        spike_in_meta_annotate.out.annotated_input
+        //spike_in_meta_annotate.out.annotated_input
+        final_meta_spike
         .map { row -> [ row[0].sample_id, 1] }
         .set { ch_scale_factor }
     }
-
+    ch_scale_factor | view
    // bt2_align_exp.out.bam | view
 
     // Align scale factor and sample to parse to paired_bam_to_bedgraph
@@ -284,19 +338,7 @@ workflow {
         .set { ch_align_scale }
     //ch_align_scale.bt2_bam_tuple | view
     // ch_align_scale.scale_factor | view
-    // ch_bt2_align_scale | view
-
-    // Genome size index not currently needed, commenting out this section
-    // // Produce genome size index
-    // if (hasExtension(params.genome, 'gz')) {
-    //     decompress( ch_genome_decompress )
-    //     ch_decompressed_genome = decompress.out.file_no_meta
-    // }
-    // //decompress.out.file_no_meta | view
-    // samtools_faidx( params.modules['samtools_faidx'], ch_decompressed_genome )
-    // //samtools_faidx.out.fai | view 
-    // awk_fai( params.modules['awk_fai'], samtools_faidx.out.fasta )
-    // // awk_fai.out.file_no_meta | view
+    // ch_bt2_align_scale | vieW
 
     // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
     //paired_bam_to_bedgraph( ch_align_scale.bt2_bam_tuple, awk_fai.out.file_no_meta.collect(), ch_align_scale.scale_factor )
@@ -355,12 +397,14 @@ workflow {
 
     // Curate ultimate metadata
     // extract sample_id for exp, meta only
-    exp_meta_annotate.out.annotated_input
+    //exp_meta_annotate.out.annotated_input
+    final_meta_exp
         .map { row -> [row[0].sample_id, row[0]].flatten() }
         .set { ch_exp_meta_sample_id }
     //ch_exp_meta_sample_id | view
     // extract sample_id for spike, meta only
-    spike_in_meta_annotate.out.annotated_input
+    //spike_in_meta_annotate.out.annotated_input
+    final_meta_spike
         .map { row -> [row[0].sample_id, row[0]].flatten() }
         .set { ch_spike_in_meta_sample_id }
     
@@ -386,6 +430,89 @@ workflow {
     //meta_file.out.meta_table | view
     // Produce analysis plots
     python_charting ( ch_charting_script, meta_file.out.meta_table )
+
+/*--------------------------archive channel manipulations-----------------------------*/
+//     // Get scale factor for normalisation
+//     if (params.spike_in_genome){
+//         spike_in_meta_annotate.out.annotated_input
+//             .combine ( ch_normalisation_c )
+//             .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_spike_total_aligned" }?.value.toInteger()) ] }
+//             .set { ch_scale_factor }
+//        // ch_scale_factor | view
+//        log.info "got here"
+//     } else { // this else doesn't make sense because there would be no spike_in_meta_out from alignment if now spike-in genome is provided
+//         spike_in_meta_annotate.out.annotated_input
+//         .map { row -> [ row[0].sample_id, 1] }
+//         .set { ch_scale_factor }
+//     }
+//     ch_scale_factor | view
+//    // bt2_align_exp.out.bam | view
+
+//     // Align scale factor and sample to parse to paired_bam_to_bedgraph
+//     bt2_align_exp.out.bam
+//         .map { row -> [row[0].sample_id, row ].flatten()}
+//         .join ( ch_scale_factor )
+//         .map { row -> row[1..(row.size() - 1)] }
+//         //.set { ch_bt2_align_scale }
+//         .multiMap { it ->
+//             bt2_bam_tuple: it [0..-2]
+//             scale_factor: it[-1]
+//         }
+//         .set { ch_align_scale }
+//     //ch_align_scale.bt2_bam_tuple | view
+//     // ch_align_scale.scale_factor | view
+//     // ch_bt2_align_scale | view
+
+//     // Genome size index not currently needed, commenting out this section
+//     // // Produce genome size index
+//     // if (hasExtension(params.genome, 'gz')) {
+//     //     decompress( ch_genome_decompress )
+//     //     ch_decompressed_genome = decompress.out.file_no_meta
+//     // }
+//     // //decompress.out.file_no_meta | view
+//     // samtools_faidx( params.modules['samtools_faidx'], ch_decompressed_genome )
+//     // //samtools_faidx.out.fai | view 
+//     // awk_fai( params.modules['awk_fai'], samtools_faidx.out.fasta )
+//     // // awk_fai.out.file_no_meta | view
+
+//     // Convert bam files to bedgraphs (does not need to be performed on spike-in alignment?)
+//     //paired_bam_to_bedgraph( ch_align_scale.bt2_bam_tuple, awk_fai.out.file_no_meta.collect(), ch_align_scale.scale_factor )
+//     paired_bam_to_bedgraph( ch_align_scale.bt2_bam_tuple, ch_align_scale.scale_factor )
+
+//     // Split experiment and control
+//     paired_bam_to_bedgraph.out.bedgraph
+//         //.map { row -> [row[0].control, row ].flatten()}
+//         .branch { it ->
+//             ch_exp: it[0].control == 'no'
+//             ch_control: it[0].control == 'yes'
+//         }
+//         .set { ch_split }
+//     //ch_split.ch_exp | view
+//     //ch_split.ch_control | view
+
+//     ch_split.ch_control
+//         .map { row -> [row[0].group, row ].flatten() }
+//         .set { ch_control_group }
+//     // ch_control_group | view
+
+//     ch_split.ch_exp
+//         .map { row -> [row[0].group, row ].flatten() }
+//         .set { ch_exp_group }
+//     // ch_exp_group | view
+
+//     ch_control_group
+//         .cross ( ch_exp_group )
+//         .multiMap { it ->
+//             ch_exp_bedgraph: it[1][1..-1]
+//             ch_control_bedgraph: it[0][1..-1]
+//         }
+//         .set { ch_exp_ctrl_split }
+//     // ch_exp_ctrl_split | view
+//     // ch_exp_ctrl_split.ch_exp_bedgraph | view
+//     // ch_exp_ctrl_split.ch_control_bedgraph | view
+
+//      Then seacr and following stuff
+/*--------------------------------------------------------------*/
 
 
 }
