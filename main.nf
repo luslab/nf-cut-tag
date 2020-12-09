@@ -296,16 +296,19 @@ workflow {
     // Assess exp alignment fragments with deeptools, genome specific blacklist
     dt_fragments_exp( params.modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_exp.out.annotated_input, ch_decompressed_genome_blacklist.collect() )
     // Annotate exp bam with deeptools data
-    meta_annotate_dt_exp( dt_fragments_exp.out.report_meta, meta_annotate_bt2_exp.out.annotated_input, ch_dt_awk, params.modules )
+    meta_annotate_dt_exp( dt_fragments_exp.out.fragment_stats_meta, meta_annotate_bt2_exp.out.annotated_input, ch_dt_awk, params.modules )
 
     // Assess spike-in alignment fragments with deeptools, genome specific blacklist
     dt_fragments_spike( params.modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_spike.out.annotated_input, ch_decompressed_spike_blacklist.collect() )
     // Annotate spike-in bam with deeptools data
-    meta_annotate_dt_spike( dt_fragments_spike.out.report_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
+    meta_annotate_dt_spike( dt_fragments_spike.out.fragment_stats_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
 
     // Define final channels for completed metadta annotation
     final_meta_exp = meta_annotate_dt_exp.out.annotated_input
     final_meta_spike = meta_annotate_dt_spike.out.annotated_input
+
+    final_meta_exp | view
+    final_meta_spike | view
 
     // Get scale factor for normalisation
     if (params.spike_in_genome){
@@ -315,14 +318,13 @@ workflow {
             .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_spike_total_aligned" }?.value.toInteger()) ] }
             .set { ch_scale_factor }
        // ch_scale_factor | view
-       log.info "got here"
     } else { // this else doesn't make sense because there would be no spike_in_meta_out from alignment if now spike-in genome is provided
         //spike_in_meta_annotate.out.annotated_input
         final_meta_spike
         .map { row -> [ row[0].sample_id, 1] }
         .set { ch_scale_factor }
     }
-    ch_scale_factor | view
+    // ch_scale_factor | view
    // bt2_align_exp.out.bam | view
 
     // Align scale factor and sample to parse to paired_bam_to_bedgraph
