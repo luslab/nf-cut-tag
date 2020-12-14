@@ -11,14 +11,18 @@ process python_charting {
 
     input:
         path meta_script_py
-        path meta_table 
+        path meta_table
+        path(reports)
+
     
     output:
-        path("seq_summary_seaborn.png")
-        path("seq_summary_table.csv")
+        path("alignment_summary.png")
+        path("alignment_summary_table.csv")
+        path("fragmanet_distribution_violin.png")
+        path("fragmanet_distribution_line.png")
 
     script:
     """
-    python ${meta_script_py} ${meta_table}
+    python ${meta_script_py} ${meta_table} ./
     """
 }
