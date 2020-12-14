@@ -14,8 +14,8 @@ process python_charting {
         path meta_table 
     
     output:
-        path("hg38_seq_summary_seaborn.png")
-        path("hg38_seq_summary_table.csv")
+        path("seq_summary_seaborn.png")
+        path("seq_summary_table.csv")
 
     script:
     """
