@@ -100,6 +100,8 @@ for i in list(range(0,len(sample_arr))):
         sample_exp_arr = np.append(sample_exp_arr, sample_exp[0])
 
 df_long = pd.DataFrame( { "fragment_size" : frags_arr, "sample" : sample_arr , "histone_mark": sample_exp_arr}, index = np.arange(len(frags_arr)))
+df_long.to_csv('./fragmanet_distribution_violin.csv', index=False)
+og_frag_df.to_csv('./fragmanet_distribution_line.csv', index=False)
 # print(df_long)
 
 plt.clf()
