@@ -27,7 +27,7 @@ hg38_meta['ecoli_alignment_rate'] = hg38_meta.loc[:, ('bt2_spike_total_aligned')
 
 ## Table containing just the data used for this plot; columns total_reads, bt2_total_aligned, hg38_alignment_rate, ecoli_alignment_rate
 seq_summary_table = hg38_meta.loc[:, ('sample_id', 'experiment', 'total_reads', 'bt2_total_aligned', 'hg38_alignment_rate', 'ecoli_alignment_rate')]
-seq_summary_table.to_csv('./hg38_seq_summary_table.csv', index=False)
+seq_summary_table.to_csv('./alignment_summary_table.csv', index=False)
 # print(seq_summary_table)
 
 # Apply the default sns theme
@@ -60,7 +60,7 @@ seq_summary[1,1].set_ylabel("Percent of Fragments Aligned")
 
 plt.subplots_adjust(wspace=0.5, hspace=0.5)
 # plt.show()
-fig.savefig('hg38_seq_summary_seaborn.png')
+fig.savefig('alignment_summary.png')
 
 # ---------- Plots 2&3 - Mapped Fragment Distribution --------- #
 

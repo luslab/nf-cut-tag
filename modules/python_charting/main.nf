@@ -20,6 +20,8 @@ process python_charting {
         path("alignment_summary_table.csv")
         path("fragmanet_distribution_violin.png")
         path("fragmanet_distribution_line.png")
+        path("fragmanet_distribution_violin.csv")
+        path("fragmanet_distribution_line.csv")
 
     script:
     """

@@ -431,10 +431,10 @@ workflow {
     meta_file ( ch_meta_all )
     //meta_file.out.meta_table | view
     // Produce analysis plots
-    // first, need to collect all channels containing deeptools raw fragment files are parse these to python charting
-    ch_charting_data = dt_fragments_exp.out.fragment_no_meta.mix(dt_fragments_spike.out.fragment_no_meta)
-        .collect()
-    python_charting ( ch_charting_script, meta_file.out.meta_table, ch_charting_data )
+    // // first, need to collect all channels containing deeptools raw fragment files are parse these to python charting
+    // ch_charting_data = dt_fragments_exp.out.fragment_no_meta.mix(dt_fragments_spike.out.fragment_no_meta)
+    //     .collect()
+    python_charting ( ch_charting_script, meta_file.out.meta_table, dt_fragments_exp.out.fragment_no_meta.collect() )
 
 /*--------------------------archive channel manipulations-----------------------------*/
 //     // Get scale factor for normalisation
