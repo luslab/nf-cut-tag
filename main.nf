@@ -293,6 +293,8 @@ workflow {
     // Annotate metadta with bt2 report
     meta_annotate_bt2_spike( bt2_align_spike_in.out.report_meta, bt2_align_spike_in.out.bam, ch_bt2_spike_awk, params.modules)
 
+    meta_annotate_bt2_spike.out.annotated_input | view
+
     // Assess exp alignment fragments with deeptools, genome specific blacklist
     dt_fragments_exp( params.modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_exp.out.annotated_input, ch_decompressed_genome_blacklist.collect() )
     // Annotate exp bam with deeptools data
