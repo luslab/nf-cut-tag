@@ -536,7 +536,7 @@ process meta_file {
         val(all_meta)
 
     output:
-        path("meta_table.csv"), emit: meta_table
+        path "meta_table.csv", emit: meta_table
 
     script:
     arr_str = all_meta[0].keySet().join(",") + ","
