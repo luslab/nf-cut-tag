@@ -387,9 +387,9 @@ workflow {
    // Collect reports to produce MultiQC reports
     multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
         fastqc.out.report
-        .mix(cutadapt.out.report)
-        .mix(bt2_align_exp.out.report)
-        .mix(bt2_align_spike_in.out.report)
+        //.mix(cutadapt.out.report)
+        //.mix(bt2_align_exp.out.report)
+        //.mix(bt2_align_spike_in.out.report)
         .collect() )
 
         // fastqc.out.report
