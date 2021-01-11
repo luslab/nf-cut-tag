@@ -266,7 +266,7 @@ workflow {
 
     /* ---------- Main Workflow ---------*/
 
-    // Load design file
+    // ********** LOAD DESIGN ********** //
     fastq_metadata( params.input )
     fastq_metadata.out.metadata | view
 
