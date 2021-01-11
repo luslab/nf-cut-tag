@@ -33,7 +33,10 @@ show_hide_patterns:
   - ["h3k4me3_", "h3k27me3_"]
 
 section_comments:
-    fastqc_sequence_counts: "This comment is for a module header, but should still work"
+    fastqc_raw_fastqc_per_base_sequence_content: >
+        The discordant sequence content at the begining of the reads are common phenomenon for CUT&Tag reads. Failing to pass the Per base seuqnence content does not mean your data failed.
+        - It can be due to the Tn5 preference.
+        - What you might be detecting is the 10-bp periodicity that shows up as a sawtooth pattern in the length distribution. If so, this is normal and will not affect alignment or peak calling. In any case we do not recommend trimming as the bowtie2 parameters that we list will give accurate mapping information without trimming.
 
 # hg38_genome
 # hg38_txome
@@ -63,5 +66,5 @@ module_order:
       anchor: "fastqc_raw"
       info: "This section of the report shows FastQC results before adapter trimming."
 
-remove_sections:
-  - fastqc_raw_fastqc_per_base_sequence_content
+#remove_sections:
+#  - fastqc_raw_fastqc_per_base_sequence_content
