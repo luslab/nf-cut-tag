@@ -53,23 +53,17 @@ Module inclusions
 
 include { luslab_header; build_debug_param_summary; check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
-include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
-include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
-
+//include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
+//include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from './luslab-nf-modules/tools/bowtie2/main.nf'
 include { bowtie2_align as bt2_align_exp; bowtie2_align as bt2_align_spike_in } from './luslab-nf-modules/tools/bowtie2/main.nf'
-
 include { meta_report_annotate as meta_annotate_bt2_exp; meta_report_annotate as meta_annotate_bt2_spike; meta_report_annotate as meta_annotate_dt_exp; meta_report_annotate as meta_annotate_dt_spike;} from './luslab-nf-modules/workflows/report_flows/main.nf'
 include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows/main.nf'
-
 include { samtools_faidx } from './luslab-nf-modules/tools/samtools/main.nf'
 include { decompress as decompress_blacklist; decompress as decompress_spike_blacklist; awk as awk_fai } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
-
 include { deeptools_bam_pe_fragment_size as dt_fragments_exp; deeptools_bam_pe_fragment_size as dt_fragments_spike } from './luslab-nf-modules/tools/deeptools/main.nf'
-
 include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
-
 include { python_charting } from './modules/python_charting/main.nf'
 
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
@@ -274,6 +268,7 @@ workflow {
 
     // Load design file
     fastq_metadata( params.input )
+    fastq_metadata.out.metadata | view
 
     // Run fastqc
     // fastqc( params.modules['fastqc'], fastq_metadata.out.metadata )
@@ -383,12 +378,12 @@ workflow {
     // seacr( params.modules['seacr'], ch_exp_ctrl_split.ch_exp_bedgraph, ch_exp_ctrl_split.ch_control_bedgraph )
     
    // Collect reports to produce MultiQC reports
-    multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
-        fastqc.out.report
+    // multiqc( params.modules['multiqc_custom'], ch_multiqc_config, 
+    //     fastqc.out.report
         //.mix(cutadapt.out.report)
         //.mix(bt2_align_exp.out.report)
         //.mix(bt2_align_spike_in.out.report)
-        .collect() )
+        // .collect() )
 
         // fastqc.out.report
         // .mix(cutadapt.out.report)
