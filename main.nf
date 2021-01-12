@@ -344,12 +344,12 @@ workflow {
     ch_split.ch_control
         .map { row -> [row[0].group, row ].flatten() }
         .set { ch_control_group }
-    ch_control_group | view
+    //ch_control_group | view
 
     ch_split.ch_exp
         .map { row -> [row[0].group, row ].flatten() }
         .set { ch_exp_group }
-    ch_exp_group | view
+    //ch_exp_group | view
 
     // ***** ORDER SO REPLICATES MATCH UP ***** //
     ch_control_group
@@ -375,44 +375,31 @@ workflow {
         .mix(bt2_align_spike_in.out.report)
         .collect() )
 
-    // Curate ultimate metadata
-    // extract sample_id for exp, meta only
-    //exp_meta_annotate.out.annotated_input
-    // final_meta_exp
-    //     .map { row -> [row[0].sample_id, row[0]].flatten() }
-    //     .set { ch_exp_meta_sample_id }
+    // ***** EXTRACT SAMPLE ID FROM META ***** //
+    final_meta_exp
+        .map { row -> [row[0].sample_id, row[0]].flatten() }
+        .set { ch_exp_meta_sample_id }
     //ch_exp_meta_sample_id | view
-    // extract sample_id for spike, meta only
-    //spike_in_meta_annotate.out.annotated_input
-    // final_meta_spike
-    //     .map { row -> [row[0].sample_id, row[0]].flatten() }
-    //     .set { ch_spike_in_meta_sample_id }
-    
-    // join channels by sample_id
-    // ch_exp_meta_sample_id
-    //     .join ( ch_spike_in_meta_sample_id )
-    //     .map { row -> row[1] << row[2] }// [bt2_spike_align1] } //, row[2].find{ it.key == "bt2_spike_align_gt1" }, row[2].find{ it.key == "bt2_spike_non_aligned" }, row[2].find{ it.key == "bt2_spike_total_aligned" } ] }
-    //     .collect()
-    //     .set { ch_meta_all }
-    // ch_meta_all | view
 
-    // Create delimited text file of metadata
-   //meta_file(ch_meta_all)
+    final_meta_spike
+        .map { row -> [row[0].sample_id, row[0]].flatten() }
+        .set { ch_spike_in_meta_sample_id }
+    //ch_spike_in_meta_sample_id | view
 
-    // def test_array = [
-    //     ['sample_id':'h3k4me3_rep2', 'experiment':'h3k4me3', 'group':'rep2', 'control':'no', 'total_reads':'1885056'],
-    //     ['sample_id':'h3k27me3_rep1', 'experiment':'h3k27me3', 'group':'rep1', 'control':'no', 'total_reads':'2984630'],
-    //     ['sample_id':'h3k27me3_rep2', 'experiment':'h3k27me3', 'group':'rep2', 'control':'no', 'total_reads':'2702260']
-    // ]
+    // ***** JOIN DATA ON SAMPLE ID ***** //
+    ch_exp_meta_sample_id
+        .join ( ch_spike_in_meta_sample_id )
+        .map { row -> row[1] << row[2] }// [bt2_spike_align1] } //, row[2].find{ it.key == "bt2_spike_align_gt1" }, row[2].find{ it.key == "bt2_spike_non_aligned" }, row[2].find{ it.key == "bt2_spike_total_aligned" } ] }
+        .collect()
+        .set { ch_meta_all }
+    //ch_meta_all | view
 
-    // Construct and emit metadata table to csv
-    // meta_file ( ch_meta_all )
+    // ***** WRITE META DATA TO TABLE ***** //
+    meta_file ( ch_meta_all )
     //meta_file.out.meta_table | view
-    // Produce analysis plots
-    // // first, need to collect all channels containing deeptools raw fragment files are parse these to python charting
-    // ch_charting_data = dt_fragments_exp.out.fragment_no_meta.mix(dt_fragments_spike.out.fragment_no_meta)
-    //     .collect()
-    // python_charting ( ch_charting_script, meta_file.out.meta_table, dt_fragments_exp.out.fragment_no_meta.collect() )
+
+    // ***** CREATE PLOTS ***** //
+    python_charting ( ch_charting_script, meta_file.out.meta_table, dt_fragments_exp.out.fragment_no_meta.collect() )
 
 /*--------------------------archive channel manipulations-----------------------------*/
 //     // Get scale factor for normalisation

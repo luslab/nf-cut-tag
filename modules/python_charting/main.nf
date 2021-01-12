@@ -14,7 +14,6 @@ process python_charting {
         path meta_table
         path(reports)
 
-    
     output:
         path("alignment_summary.png")
         path("alignment_summary_table.csv")
