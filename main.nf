@@ -20,6 +20,8 @@ Luscombe lab CUT&Tag analysis pipeline.
     --spike_in_genome       spike-in genome, either in fasta/compressed fasta (or bowtie2 index)??
     --genome_blacklist  
     --spike_in_blacklist    optional
+    --chrom_sizes           chromasome size data from UCSC e.g (https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/)
+    --genome_gtf            GTF for reference genome
 
 
     //TODO add options for overriding module params, especially bt2 aligner
@@ -28,7 +30,6 @@ Luscombe lab CUT&Tag analysis pipeline.
 
     --trim_nextseq INT      INT is q-score cuttoff for nextseq adaptor trimming
 */
-
 
 // Define DSL2
 nextflow.enable.dsl=2
@@ -50,7 +51,7 @@ Module inclusions
 
 include { luslab_header; build_debug_param_summary; check_params } from './luslab-nf-modules/tools/luslab_util/main.nf'
 include { fastq_metadata } from './luslab-nf-modules/tools/metadata/main.nf'
-include { decompress as decompress_blacklist; decompress as decompress_spike_blacklist; awk as awk_fai } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
+include { decompress as decompress_blacklist; decompress as decompress_spike_blacklist; awk as awk_fai; decompress as decompress_genome; } from './luslab-nf-modules/tools/luslab_linux_tools/main.nf'
 include { fastqc } from './luslab-nf-modules/tools/fastqc/main.nf'
 include { multiqc } from './luslab-nf-modules/tools/multiqc/main.nf'
 include { bowtie2_build as bt2_build_exp; bowtie2_build as bt2_build_spike} from './luslab-nf-modules/tools/bowtie2/main.nf'
@@ -116,6 +117,14 @@ Channel setup
 Channel
     .fromPath("$baseDir/assets/multiqc_config.yml")
     .set { ch_multiqc_config }
+
+Channel
+    .fromPath(params.chrom_sizes)
+    .set { ch_chrom_sizes }
+
+Channel
+    .fromPath(params.genome_gtf)
+    .set { ch_genome_gtf }
 
 if (params.genome) {
     Channel
@@ -247,6 +256,16 @@ workflow {
     if (hasExtension(params.spike_in_blacklist, 'gz')) {
         decompress_spike_blacklist ( ch_spike_blacklist_decompress )
         ch_decompressed_spike_blacklist = decompress_spike_blacklist.out.file_no_meta
+    }
+
+    if (hasExtension(params.spike_in_blacklist, 'gz')) {
+        decompress_spike_blacklist ( ch_spike_blacklist_decompress )
+        ch_decompressed_spike_blacklist = decompress_spike_blacklist.out.file_no_meta
+    }
+
+    if (hasExtension(params.genome, 'gz')) {
+        decompress_genome( ch_genome_decompress )
+        ch_decompressed_genome = decompress_genome.out.file_no_meta
     }
 
     /* ---------- Main Workflow ---------*/
@@ -401,6 +420,86 @@ workflow {
     // ***** CREATE PLOTS ***** //
     python_charting ( ch_charting_script, meta_file.out.meta_table, dt_fragments_exp.out.fragment_no_meta.collect() )
 
+    // ***** CONVERT BEDGRAPH TO BIGWIG ***** //
+    ucsc_bedgraphtobigwig( paired_bam_to_bedgraph.out.bedgraph, ch_chrom_sizes.collect() )
+
+    // ***** CREATE IGV SESSION ***** //
+    igv( ch_decompressed_genome.collect(), ch_genome_gtf, seacr.out.bed.collect{it[1]}.ifEmpty([]), ucsc_bedgraphtobigwig.out.bigwig.collect() )
+}
+
+process meta_file {
+    publishDir "${params.outdir}/meta",
+    mode: "copy",
+    overwrite: true
+    
+    container 'ubuntu:16.04'
+
+    input:
+        val(all_meta)
+
+    output:
+        path "meta_table.csv", emit: meta_table
+
+    script:
+    arr_str = all_meta[0].keySet().join(",") + ","
+
+    for ( int i = 0;i<all_meta.size();i++ ) {
+        sample_str = all_meta[i].values().join(",")
+        arr_str =  arr_str + "\n" + sample_str
+    }
+
+    """
+    echo "${arr_str}" > meta_table.csv
+
+    """
+}
+
+process ucsc_bedgraphtobigwig {
+    publishDir "${params.outdir}/bigwig",
+    mode: "copy",
+    overwrite: true
+
+    container 'quay.io/biocontainers/ucsc-bedgraphtobigwig:377--h446ed27_1'
+
+    input:
+      tuple val(meta), path(bedgraph)
+      path chrome_sizes
+
+    output:
+      path "*.bw", emit: bigwig
+
+    script:
+    """
+    bedGraphToBigWig ${bedgraph} ${chrome_sizes} ${bedgraph.simpleName}.bw
+    """
+}
+
+process igv {
+    publishDir "${params.outdir}/igv",
+    mode: "copy",
+    overwrite: true
+
+    container 'python:3.9.1-buster'
+
+    input:
+      val(genome)
+      path gtf
+      path beds
+      path bw
+
+    output:
+      path('*.{txt,xml,bed,bw,gz}', includeInputs:true)
+
+    script:
+    """
+    find -L * -iname "*.gz" -exec echo -e {}"\\t0,0,178" \\; > gz.igv.txt
+    find -L * -iname "*.bed" -exec echo -e {}"\\t0,0,178" \\; > bed.igv.txt
+    find -L * -iname "*.bw" -exec echo -e {}"\\t0,0,178" \\; > bw.igv.txt
+    cat *.txt > igv_files.txt
+    ${baseDir}/bin/igv_files_to_session.py igv_session.xml igv_files.txt ${genome[0]} --path_prefix './'
+    """
+}
+
 /*--------------------------archive channel manipulations-----------------------------*/
 //     // Get scale factor for normalisation
 //     if (params.spike_in_genome){
@@ -483,36 +582,6 @@ workflow {
 
 //      Then seacr and following stuff
 /*--------------------------------------------------------------*/
-
-
-}
-
-process meta_file {
-    publishDir "${params.outdir}/meta",
-    mode: "copy",
-    overwrite: true
-    
-    container 'ubuntu:16.04'
-
-    input:
-        val(all_meta)
-
-    output:
-        path "meta_table.csv", emit: meta_table
-
-    script:
-    arr_str = all_meta[0].keySet().join(",") + ","
-
-    for ( int i = 0;i<all_meta.size();i++ ) {
-        sample_str = all_meta[i].values().join(",")
-        arr_str =  arr_str + "\n" + sample_str
-    }
-
-    """
-    echo "${arr_str}" > meta_table.csv
-
-    """
-}
 
 //-------------------------------------------------------------------------------------------------------------------------------*/
 
