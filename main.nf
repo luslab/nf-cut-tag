@@ -76,6 +76,7 @@ include { python_charting } from './modules/python_charting/main.nf'
 
 // NF-CORE
 include { TRIMGALORE } from './nfcore-nf-modules/software/trimgalore/main' addParams( options: trimgalore_options )
+include { picard } from './nfcore-nf-modules/software/picard/main' addParams()
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Sub workflows
