@@ -314,6 +314,27 @@ workflow {
     meta_annotate_dt_spike( dt_fragments_spike.out.fragment_stats_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
     //meta_annotate_dt_spike.out.annotated_input | view
 
+    // ***** SPLIT CHANNEL INTO EXP AND CONTROL ***** //
+    // split target alignments into exp and control
+        paired_bam_to_bedgraph.out.bedgraph
+        .branch { it ->
+            ch_exp: it[0].control == 'no'
+            ch_control: it[0].control == 'yes'
+        }
+        .set { ch_split }
+    // split spike alignments into exp and control
+
+
+    // ***** MARK TARGET DUPLICATES WITH PICARD ***** //
+
+    // ***** REMOVE TARGET CONTROL DUPLICATES WITH PICARD ***** //
+
+    // ***** MARK SPIKE-IN DUPLICATES WITH PICARD ***** //
+
+    // ***** REMOVE SPIKE-IN CONTROL DUPLICATES WITH PICARD ***** //
+
+    // ***** COMBINE EXP AND CONTROL CHANNELS ***** //
+
     // ***** CHANNEL NAME CLEAN-UP ***** //
     final_meta_exp = meta_annotate_dt_exp.out.annotated_input
     final_meta_spike = meta_annotate_dt_spike.out.annotated_input
