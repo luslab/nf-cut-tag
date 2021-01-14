@@ -41,13 +41,16 @@ Parameter Initialisation
 // Don't overwrite global params.modules, create a copy instead and use that within the main script.
 def modules = params.modules.clone()
 
-def trimgalore_options    = modules['trimgalore']
-trimgalore_options.args  += params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
-if (params.save_trimmed)  { trimgalore_options.publish_files.put('fq.gz','') }
+def trimgalore_options      = modules['trimgalore']
+trimgalore_options.args    += params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
+if (params.save_trimmed)    { trimgalore_options.publish_files.put('fq.gz','') }
 
-def picard_mark_options   = modules['picard']
+def picard_mark_options     = modules['picard']
+picard_mark_options.args   += ""
 
-def picard_dedup_options  = modules['picard']
+def picard_dedup_options    = modules['picard']
+picard_dedup_options.args  += "REMOVE_DUPLICATES=true"
+
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Module inclusions
@@ -80,8 +83,10 @@ include { python_charting } from './modules/python_charting/main.nf'
 
 // NF-CORE
 include { TRIMGALORE } from './nfcore-nf-modules/software/trimgalore/main' addParams( options: trimgalore_options )
-include { PICARD_MARKDUPLICATES as picard_mark } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams()
-include { PICARD_MARKDUPLICATES as picard_dedup } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams()
+include { PICARD_MARKDUPLICATES as picard_mark_target } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(picard_mark_options)
+include { PICARD_MARKDUPLICATES as picard_mark_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(picard_mark_options)
+include { PICARD_MARKDUPLICATES as picard_dedup_target } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(picard_dedup_options)
+include { PICARD_MARKDUPLICATES as picard_dedup_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(picard_dedup_options)
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Sub workflows
@@ -316,28 +321,43 @@ workflow {
 
     // ***** SPLIT CHANNEL INTO EXP AND CONTROL ***** //
     // split target alignments into exp and control
-        paired_bam_to_bedgraph.out.bedgraph
+    meta_annotate_dt_exp.out.annotated_input
         .branch { it ->
             ch_exp: it[0].control == 'no'
             ch_control: it[0].control == 'yes'
         }
-        .set { ch_split }
+        .set { ch_target_split }
     // split spike alignments into exp and control
-
+    meta_annotate_dt_spike.out.annotated_input
+        .branch { it ->
+            ch_exp: it[0].control == 'no'
+            ch_control: it[0].control == 'yes'
+        }
+        .set { ch_spike_split }
 
     // ***** MARK TARGET DUPLICATES WITH PICARD ***** //
+    picard_mark_target(ch_target_split.ch_exp)
+    picard_mark_target.out.bam | view
 
     // ***** REMOVE TARGET CONTROL DUPLICATES WITH PICARD ***** //
+    picard_dedup_target(ch_target_split.ch_control)
+    picard_dedup_target.out.bam | view
 
     // ***** MARK SPIKE-IN DUPLICATES WITH PICARD ***** //
+    picard_mark_spike(ch_spike_split.ch_exp)
+    picard_mark_spike.out.bam | view
 
     // ***** REMOVE SPIKE-IN CONTROL DUPLICATES WITH PICARD ***** //
-
-    // ***** COMBINE EXP AND CONTROL CHANNELS ***** //
+    picard_dedup_spike(ch_spike_split.ch_control)
+    picard_dedup_spike.out.bam | view
 
     // ***** CHANNEL NAME CLEAN-UP ***** //
-    final_meta_exp = meta_annotate_dt_exp.out.annotated_input
-    final_meta_spike = meta_annotate_dt_spike.out.annotated_input
+    // final_meta_exp = meta_annotate_dt_exp.out.annotated_input
+    // final_meta_spike = meta_annotate_dt_spike.out.annotated_input
+    final_meta_exp = picard_mark_target.out.bam
+        .mix(picard_dedup_target.out.bam)
+    final_meta_spike = picard_mark_spike.out.bam
+        .mix(picard_dedup_spike.out.bam)
 
     // ***** CALCULATE SCALE FACTOR FOR SPIKE-IN NORMALISATION ***** //
     if (params.spike_in_genome){
