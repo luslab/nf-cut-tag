@@ -45,6 +45,10 @@ def trimgalore_options    = modules['trimgalore']
 trimgalore_options.args  += params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
 if (params.save_trimmed)  { trimgalore_options.publish_files.put('fq.gz','') }
 
+def picard_mark_options   = modules['picard']
+
+def picard_dedup_options  = modules['picard']
+
 /*-----------------------------------------------------------------------------------------------------------------------------
 Module inclusions
 -------------------------------------------------------------------------------------------------------------------------------*/
@@ -76,7 +80,8 @@ include { python_charting } from './modules/python_charting/main.nf'
 
 // NF-CORE
 include { TRIMGALORE } from './nfcore-nf-modules/software/trimgalore/main' addParams( options: trimgalore_options )
-include { picard } from './nfcore-nf-modules/software/picard/main' addParams()
+include { PICARD_MARKDUPLICATES as picard_mark } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams()
+include { PICARD_MARKDUPLICATES as picard_dedup } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams()
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Sub workflows
