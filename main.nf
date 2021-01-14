@@ -62,17 +62,12 @@ include { paired_bam_to_bedgraph } from './luslab-nf-modules/workflows/bed_flows
 include { seacr } from './luslab-nf-modules/tools/seacr/main.nf'
 include { python_charting } from './modules/python_charting/main.nf'
 
-include { samtools_faidx } from './luslab-nf-modules/tools/samtools/main.nf'
-
-
-
-
+//include { samtools_faidx } from './luslab-nf-modules/tools/samtools/main.nf'
 //include { multiqc as multiqc_control} from './luslab-nf-modules/tools/multiqc/main.nf'
 //include { cutadapt } from './luslab-nf-modules/tools/cutadapt/main.nf'
 //include { bowtie2_align as bt2_genome_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 //include { bowtie2_align as bt2_spike_in_align } from './luslab-nf-modules/tools/bowtie2/main.nf'
 //include { umitools_dedup } from './luslab-nf-modules/tools/umi_tools/main.nf'
-
 
 // SEACR dev
 //include { paired_bam_to_bedgraph as seacr_data_input} from './luslab-nf-modules/workflows/bed_flows/main.nf'
