@@ -310,7 +310,7 @@ workflow {
     dt_fragments_spike( modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_spike.out.annotated_input, ch_decompressed_spike_blacklist.collect() )
     //dt_fragments_spike.out.fragment_size_summary | view
 
-    // ***** ANNOTATE METADATA WITH REFERENCE GENOME ALIGNMENT FRAGMENT STATS ***** //
+    // ***** ANNOTATE METADATA WITH SPIKE-IN GENOME ALIGNMENT FRAGMENT STATS ***** //
     meta_annotate_dt_spike( dt_fragments_spike.out.fragment_stats_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
     //meta_annotate_dt_spike.out.annotated_input | view
 
