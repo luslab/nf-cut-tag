@@ -345,7 +345,7 @@ workflow {
 
     // ***** REMOVE TARGET CONTROL DUPLICATES WITH PICARD ***** //
     picard_dedup_target(ch_target_split.ch_control)
-    // picard_dedup_target.out.bam | view
+    picard_dedup_target.out.bam | view
 
     // ***** MARK SPIKE-IN DUPLICATES WITH PICARD ***** //
     picard_mark_spike(ch_spike_split.ch_exp)
