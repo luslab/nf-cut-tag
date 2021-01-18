@@ -320,13 +320,7 @@ workflow {
     //meta_annotate_dt_spike.out.annotated_input | view
 
     // ***** SPLIT CHANNEL INTO EXP AND CONTROL ***** //
-    // split target alignments into exp and control
-    // log.info 'target'
-    // meta_annotate_dt_exp.out.annotated_input | view
-    // log.info 'spike'
-    // meta_annotate_dt_spike.out.annotated_input | view 
-
-    meta_annotate_dt_exp.out.annotated_input //.collect{it[0..-1]}
+    meta_annotate_dt_exp.out.annotated_input
         .map{ row -> row[0..-2] }
         .branch { it ->
             ch_exp: it[0].control == 'no'
@@ -334,7 +328,7 @@ workflow {
         }
         .set { ch_target_split }
     // split spike alignments into exp and control
-    meta_annotate_dt_spike.out.annotated_input // .collect{it[0..-1]}
+    meta_annotate_dt_spike.out.annotated_input
         .map{ row -> row[0..-2] }
         .branch { it ->
             ch_exp: it[0].control == 'no'
@@ -342,30 +336,22 @@ workflow {
         }
         .set { ch_spike_split }
 
-    ch_spike_split.ch_control | view
-    ch_target_split.ch_exp | view
+    // ch_spike_split.ch_control | view
+    // ch_target_split.ch_exp | view
 
     // ***** MARK TARGET DUPLICATES WITH PICARD ***** //
-    // log.info 'ch_target_split.ch_exp'
-    // ch_target_split.ch_exp | view
     picard_mark_target(ch_target_split.ch_exp)
     // picard_mark_target.out.bam | view
 
     // ***** REMOVE TARGET CONTROL DUPLICATES WITH PICARD ***** //
-    // log.info 'ch_target_split.ch_control'
-    // ch_target_split.ch_control.collect{it[0..-1]} | view
     picard_dedup_target(ch_target_split.ch_control)
     // picard_dedup_target.out.bam | view
 
     // ***** MARK SPIKE-IN DUPLICATES WITH PICARD ***** //
-    // log.info 'ch_spike_split.ch_exp'
-    // ch_spike_split.ch_exp | view
     picard_mark_spike(ch_spike_split.ch_exp)
     // picard_mark_spike.out.bam | view
 
     // ***** REMOVE SPIKE-IN CONTROL DUPLICATES WITH PICARD ***** //
-    // log.info 'ch_spike_split.ch_control'
-    // ch_spike_split.ch_control | view
     picard_dedup_spike(ch_spike_split.ch_control)
     // picard_dedup_spike.out.bam | view
 
