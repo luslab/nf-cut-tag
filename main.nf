@@ -85,8 +85,8 @@ include { python_charting } from './modules/python_charting/main.nf'
 include { TRIMGALORE } from './nfcore-nf-modules/software/trimgalore/main' addParams( options: trimgalore_options )
 include { PICARD_MARKDUPLICATES as picard_mark_target } from './nfcore-nf-modules/software/picard/markduplicates/main' //addParams(picard_mark_options)
 include { PICARD_MARKDUPLICATES as picard_mark_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' //addParams(picard_mark_options)
-include { PICARD_MARKDUPLICATES as picard_dedup_target } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(picard_dedup_options)
-include { PICARD_MARKDUPLICATES as picard_dedup_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(picard_dedup_options)
+include { PICARD_MARKDUPLICATES as picard_dedup_target } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(options : picard_dedup_options)
+include { PICARD_MARKDUPLICATES as picard_dedup_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(options : picard_dedup_options)
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Sub workflows
