@@ -378,7 +378,8 @@ workflow {
     //ch_scale_factor | view
 
     // ***** MERGE SCALE FACTOR INTO DATA CHANNELS ***** //
-    bt2_align_exp.out.bam
+    //bt2_align_exp.out.bam
+    final_meta_exp
         .map { row -> [row[0].sample_id, row ].flatten()}
         .join ( ch_scale_factor )
         .map { row -> row[1..(row.size() - 1)] }
