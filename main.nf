@@ -41,9 +41,16 @@ Parameter Initialisation
 // Don't overwrite global params.modules, create a copy instead and use that within the main script.
 def modules = params.modules.clone()
 
-def trimgalore_options    = modules['trimgalore']
-trimgalore_options.args  += params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
-if (params.save_trimmed)  { trimgalore_options.publish_files.put('fq.gz','') }
+def trimgalore_options          = modules['trimgalore']
+trimgalore_options.args         += params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
+if (params.save_trimmed)        { trimgalore_options.publish_files.put('fq.gz','') }
+
+def picard_mark_options         = modules['picard']
+picard_mark_options.args        += ""
+
+def picard_dedup_options        = modules['picard']
+picard_dedup_options.args       += "REMOVE_DUPLICATES=true"
+picard_dedup_options.suffix     = "dedup"
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Module inclusions
@@ -76,6 +83,10 @@ include { python_charting } from './modules/python_charting/main.nf'
 
 // NF-CORE
 include { TRIMGALORE } from './nfcore-nf-modules/software/trimgalore/main' addParams( options: trimgalore_options )
+include { PICARD_MARKDUPLICATES as picard_mark_target } from './nfcore-nf-modules/software/picard/markduplicates/main' //addParams(picard_mark_options)
+include { PICARD_MARKDUPLICATES as picard_mark_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' //addParams(picard_mark_options)
+include { PICARD_MARKDUPLICATES as picard_dedup_target } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(options : picard_dedup_options)
+include { PICARD_MARKDUPLICATES as picard_dedup_spike } from './nfcore-nf-modules/software/picard/markduplicates/main' addParams(options : picard_dedup_options)
 
 /*-----------------------------------------------------------------------------------------------------------------------------
 Sub workflows
@@ -304,19 +315,59 @@ workflow {
     dt_fragments_spike( modules['deeptools_bam_pe_fragment_size'], meta_annotate_bt2_spike.out.annotated_input, ch_decompressed_spike_blacklist.collect() )
     //dt_fragments_spike.out.fragment_size_summary | view
 
-    // ***** ANNOTATE METADATA WITH REFERENCE GENOME ALIGNMENT FRAGMENT STATS ***** //
+    // ***** ANNOTATE METADATA WITH SPIKE-IN GENOME ALIGNMENT FRAGMENT STATS ***** //
     meta_annotate_dt_spike( dt_fragments_spike.out.fragment_stats_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
     meta_annotate_dt_spike.out.annotated_input | view
 
+    // ***** SPLIT CHANNEL INTO EXP AND CONTROL ***** //
+    meta_annotate_dt_exp.out.annotated_input
+        .map{ row -> row[0..-2] }
+        .branch { it ->
+            ch_exp: it[0].control == 'no'
+            ch_control: it[0].control == 'yes'
+        }
+        .set { ch_target_split }
+    // split spike alignments into exp and control
+    meta_annotate_dt_spike.out.annotated_input
+        .map{ row -> row[0..-2] }
+        .branch { it ->
+            ch_exp: it[0].control == 'no'
+            ch_control: it[0].control == 'yes'
+        }
+        .set { ch_spike_split }
+
+    // ch_spike_split.ch_control | view
+    // ch_target_split.ch_exp | view
+
+    // ***** MARK TARGET DUPLICATES WITH PICARD ***** //
+    picard_mark_target(ch_target_split.ch_exp)
+    // picard_mark_target.out.bam | view
+
+    // ***** REMOVE TARGET CONTROL DUPLICATES WITH PICARD ***** //
+    picard_dedup_target(ch_target_split.ch_control)
+    picard_dedup_target.out.bam | view
+
+    // ***** MARK SPIKE-IN DUPLICATES WITH PICARD ***** //
+    picard_mark_spike(ch_spike_split.ch_exp)
+    // picard_mark_spike.out.bam | view
+
+    // ***** REMOVE SPIKE-IN CONTROL DUPLICATES WITH PICARD ***** //
+    picard_dedup_spike(ch_spike_split.ch_control)
+    // picard_dedup_spike.out.bam | view
+
     // ***** CHANNEL NAME CLEAN-UP ***** //
-    final_meta_exp = meta_annotate_dt_exp.out.annotated_input
-    final_meta_spike = meta_annotate_dt_spike.out.annotated_input
+    // final_meta_exp = meta_annotate_dt_exp.out.annotated_input
+    // final_meta_spike = meta_annotate_dt_spike.out.annotated_input
+    final_meta_exp = picard_mark_target.out.bam
+        .mix(picard_dedup_target.out.bam)
+    final_meta_spike = picard_mark_spike.out.bam
+        .mix(picard_dedup_spike.out.bam)
 
     // ***** CALCULATE SCALE FACTOR FOR SPIKE-IN NORMALISATION ***** //
     if (params.spike_in_genome){
         final_meta_spike
             .combine ( ch_normalisation_c )
-            .map { row -> [ row[0].sample_id, row[3] / (row[0].find{ it.key == "bt2_spike_total_aligned" }?.value.toInteger()) ] }
+            .map { row -> [ row[0].sample_id, row[-1] / (row[0].find{ it.key == "bt2_spike_total_aligned" }?.value.toInteger()) ] }
             .set { ch_scale_factor }
     } else { // this else doesn't make sense because there would be no spike_in_meta_out from alignment if now spike-in genome is provided
         //spike_in_meta_annotate.out.annotated_input
@@ -327,7 +378,8 @@ workflow {
     //ch_scale_factor | view
 
     // ***** MERGE SCALE FACTOR INTO DATA CHANNELS ***** //
-    bt2_align_exp.out.bam
+    //bt2_align_exp.out.bam
+    final_meta_exp
         .map { row -> [row[0].sample_id, row ].flatten()}
         .join ( ch_scale_factor )
         .map { row -> row[1..(row.size() - 1)] }
