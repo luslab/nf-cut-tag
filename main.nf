@@ -306,7 +306,7 @@ workflow {
 
     // ***** ANNOTATE METADATA WITH REFERENCE GENOME ALIGNMENT FRAGMENT STATS ***** //
     meta_annotate_dt_spike( dt_fragments_spike.out.fragment_stats_meta, meta_annotate_bt2_spike.out.annotated_input, ch_dt_spike_awk, params.modules )
-    //meta_annotate_dt_spike.out.annotated_input | view
+    meta_annotate_dt_spike.out.annotated_input | view
 
     // ***** CHANNEL NAME CLEAN-UP ***** //
     final_meta_exp = meta_annotate_dt_exp.out.annotated_input
@@ -419,7 +419,7 @@ workflow {
     ucsc_bedgraphtobigwig( paired_bam_to_bedgraph.out.bedgraph, ch_chrom_sizes.collect() )
 
     // ***** CREATE IGV SESSION ***** //
-    igv( ch_decompressed_genome.collect(), ch_genome_gtf, seacr.out.bed.collect{it[1]}.ifEmpty([]), ucsc_bedgraphtobigwig.out.bigwig.collect() )
+    igv( ch_decompressed_genome, ch_genome_gtf, seacr.out.bed.collect{it[1]}.ifEmpty([]), ucsc_bedgraphtobigwig.out.bigwig.collect() )
 }
 
 process meta_file {
@@ -477,17 +477,17 @@ process igv {
     container 'python:3.9.1-buster'
 
     input:
-      val(genome)
+      path genome
       path gtf
       path beds
       path bw
 
     output:
-      path('*.{txt,xml,bed,bw,gz}', includeInputs:true)
+      path('*.{txt,xml,bed,bw,fa}', includeInputs:true)
 
     script:
     """
-    find -L * -iname "*.gz" -exec echo -e {}"\\t0,0,178" \\; > gz.igv.txt
+    find -L * -iname "*.fa" -exec echo -e {}"\\t0,0,178" \\; > fa.igv.txt
     find -L * -iname "*.bed" -exec echo -e {}"\\t0,0,178" \\; > bed.igv.txt
     find -L * -iname "*.bw" -exec echo -e {}"\\t0,0,178" \\; > bw.igv.txt
     cat *.txt > igv_files.txt
